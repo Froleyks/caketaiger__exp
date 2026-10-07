@@ -36,24 +36,28 @@ for cfg in ["caketaiger", "certifaiger"]:
     vals = [((r[f"clauses_{c}"] / r.witness_M).mean(), r[f"check_{c}"].mean()) for c in checks]
     vals.append((r.ratio.mean(), r.check.mean()))
     for row, (ratio, time) in zip(rows, vals):
-        row.extend([f"{ratio:.4f}", f"{time:.4f}"])
-    rows[-1].extend(["", f"{r.gen.mean():.4f}"])
+        row.extend([ratio, time])
+    rows[-1].extend(["", r.gen.mean()])
 
-widths = [max(col, key=len) for col in zip(*(row[1:] for row in rows))]
+maxima = [max(col) for col in zip(*(row[1:] for row in rows[:len(checks)]))]
+fmt = lambda v: f"{v:.4f}" if v != "" else ""
+widths = [max(map(fmt, col), key=len) for col in zip(*(row[1:] for row in rows))]
 with open(f"{out}-checks.tex", "w") as f:
-    f.write(r"\begin{center}\resizebox{.98\linewidth}{!}{\begin{tabular}{lrrrr}\toprule" + "\n")
-    f.write(r" & \multicolumn{2}{c}{Caketaiger} & \multicolumn{2}{c}{Certifaiger} \\" + "\n")
-    f.write(r"\cmidrule(lr){2-3}\cmidrule(lr){4-5}" + "\n")
+    f.write(r"\begin{center}\begin{tabular}{lrr@{}p{8pt}@{}rr}\toprule" + "\n")
+    f.write(r" & \multicolumn{2}{c}{\textsc{Caketaiger}} & & \multicolumn{2}{c}{\textsc{Certifaiger}} \\" + "\n")
+    f.write(r"\cmidrule(lr){2-3}\cmidrule(lr){5-6}" + "\n")
     heads = ["Clause/gate", "Time (s)", "Clause/gate", "Time (s)"]
-    f.write("Check & " + " & ".join(r"\multicolumn{1}{c}{" + h + "}" for h in heads)
+    heads = [r"\multicolumn{1}{c}{" + h + "}" for h in heads]
+    heads.insert(2, "")
+    f.write("Check & " + " & ".join(heads)
             + r" \\ \midrule" + "\n")
     for name, *cells in rows:
         if name in ("All", "Generation"):
             f.write(r"\midrule" + "\n")
-        cells = [r"\multicolumn{1}{c}{\phantom{" + w + r"}\llap{" + v + "}}"
-                 for w, v in zip(widths, cells)]
+        cells = [r"\multicolumn{1}{c}{\phantom{" + w + r"}\llap{"
+                 + (r"{\bft " + fmt(v) + "}"
+                    if name in checks and v == m else fmt(v)) + "}}"
+                 for w, v, m in zip(widths, cells, maxima)]
+        cells.insert(2, "")
         f.write(" & ".join([name, *cells]) + r" \\" + "\n")
-    f.write(r"\bottomrule\end{tabular}}\end{center}" + "\n")
-    f.write(r"Per-benchmark means. Clause/gate is $\mathrm{clauses}_{\mathrm{check}} / "
-            r"M_{\mathrm{witness}}$. All sums the individual checks. "
-            "Generation sums generator, split and CNF-conversion times; these stages may overlap.\n")
+    f.write(r"\bottomrule\end{tabular}\end{center}" + "\n")

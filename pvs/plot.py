@@ -23,8 +23,9 @@ widths = [max(col, key=len) for col in zip(*(row[1:] for row in rows))]
 
 with open(f"{out}.tex", "w") as f:
     f.write(r"\noindent\begin{minipage}{\linewidth}\begin{center}" + "\n")
+    f.write(r"\setlength{\tabcolsep}{8pt}" + "\n")
     f.write(r"\begin{tabular}{lrrr}\toprule" + "\n")
-    heads = ["Certifaiger (s)", "Caketaiger (s)", "PVS (s)"]
+    heads = [r"\textsc{Certifaiger} (s)", r"\textsc{Caketaiger} (s)", r"\textsc{pvs} (s)"]
     f.write("Benchmark & " + " & ".join(r"\multicolumn{1}{c}{" + h + "}" for h in heads)
             + r" \\ \midrule" + "\n")
     for i, (name, *cells) in enumerate(rows):
@@ -32,7 +33,4 @@ with open(f"{out}.tex", "w") as f:
                  for w, v in zip(widths, cells)]
         f.write(" & ".join([name, *cells]) + r" \\" + (r" \midrule" if i == 0 else "") + "\n")
     f.write(r"\bottomrule\end{tabular}\end{center}" + "\n")
-    f.write("Total time = recorded runtime of each run. Unsuccessful runs are shown by status. "
-            f"PAR-2 is the mean over all {len(t)} benchmarks, with a {2 * timeout:g} s penalty "
-            f"(twice the {timeout:g} s timeout) for unsuccessful runs.\n")
     f.write(r"\end{minipage}\par\vspace{1cm}" + "\n")
