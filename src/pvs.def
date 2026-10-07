@@ -1,0 +1,27 @@
+Bootstrap: docker
+From: debian:trixie-slim
+
+%files
+    pvs.tar.xz /opt/pvs.tar.xz
+
+%post
+    set -eu
+    apt-get update
+    apt-get install -y --no-install-recommends bash make gcc libc6-dev sbcl xz-utils curl ca-certificates git
+    rm -rf /var/lib/apt/lists/*
+    cd /opt
+    tar -xJf pvs.tar.xz nuxmv/PVS
+    mv nuxmv/PVS /opt/pvs
+    rm -rf nuxmv pvs.tar.xz
+    git config --system --add safe.directory /opt/pvs
+    cd /opt/pvs
+    unset SBCL_HOME
+    ./configure
+    make -j1
+    make -j1
+
+%environment
+    export LANG=C.UTF-8
+
+%test
+    /opt/pvs/pvs -raw -E '(bye)'

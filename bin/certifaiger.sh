@@ -1,0 +1,131 @@
+#!/usr/bin/env bash
+# From Certifaiger scripts/check_unsat.in at 27d526e3e979074c3e92582768f577dc6eddb0da.
+: "${SAT_OPTIONS:= --quiet --unsat}"
+SAT_OPTIONS+=" --no-witness"
+bin="$(cd -- "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd -P)"
+limit="$bin"/limit.sh
+certifaiger="$bin"/certifaiger
+sat_solver="$bin/cadical"
+sat_checker="$bin/cake_lrup"
+echo "$(basename "$0"): Checking with SAT solver $(basename "$sat_solver") $SAT_OPTIONS"
+[ -n "$sat_checker" ] && echo "$(basename "$0"): Checking proofs with $(basename "$sat_checker")"
+aigtocnf="$bin"/aigtocnf
+echo "$(basename "$0"): aigtocnf options: ${AIGTOCNF_OPTIONS:-(default)}"
+aigsplit="$bin"/aigsplit
+[ $# -lt 2 ] && echo "usage: $(basename "$0") <model> <witness>" && exit 0
+mkdir -p ${TMPDIR:-/tmp}/froleyks-certifaiger
+: ${SEQUENTIAL:=false}
+TMP=$(mktemp -d "${TMPDIR:-/tmp}"/froleyks-certifaiger/$(basename "$0")-XXXXXXXX)
+
+main_PID=$BASHPID
+cleanup() {
+	st=$?
+	if [[ $BASHPID -eq $main_PID ]]; then
+		rm -rf -- "$TMP"
+	fi
+	exit "$st"
+}
+trap cleanup EXIT HUP INT QUIT TERM
+
+model="$1"
+witness="$2"
+check="${model##*/}"
+check="${check%.*}"
+check="${TMP}/check_${check}"
+shift 2
+
+for f in model witness; do
+	path="${!f}"
+	[ -f "$path" ] || {
+		echo "$(basename "$0"): Error: missing file $path" >&2
+		exit 1
+	}
+	echo "$(basename "$0"): size $f $path $(wc -l <"$path") lines $(wc -c <"$path") bytes $(head -n 1 "$path")"
+done
+
+echo $(basename "$0"): Checking witness circuit "$witness"
+$limit generation \
+	$certifaiger "$model" "$witness" "$check".aig "$@"
+certifaiger_exit=$?
+[ $certifaiger_exit -ne 0 ] && echo "$(basename "$0"): Error: certifaiger failed with exit code $certifaiger_exit)" >&2 && exit 1
+echo
+
+cd "$TMP" || exit 1
+$limit split $aigsplit -n "$check".aig split_ || {
+	echo "$(basename "$0"): Error: aigsplit failed" >&2
+	exit 1
+}
+
+sat() {
+	echo Checking $1
+	local t
+	$limit "cnf-$1" $aigtocnf $AIGTOCNF_OPTIONS "${TMP}/$2" "${TMP}/$2.cnf" || return 1
+	path="${TMP}/$2"
+	echo "$(basename "$0"): size $1 $path $(wc -l <"$path") lines $(wc -c <"$path") bytes $(head -n 1 "$path")"
+	path="${TMP}/$2.cnf"
+	echo "$(basename "$0"): size CNF $1 $path $(wc -l <"$path") lines $(wc -c <"$path") bytes $(head -n 1 "$path")"
+	if [ -n "$sat_checker" ]; then
+		format="--lrat --binary --no-factor"
+		expected=0
+
+		proof="${TMP}/$2.proof"
+		mkfifo "$proof" || {
+			echo "$(basename "$0"): Error: could not create proof FIFO $proof" >&2
+			exit 1
+		}
+		$limit "$1" \
+			$sat_solver $SAT_OPTIONS $format "${TMP}/$2.cnf" "$proof" &
+		solver_pid=$!
+		$limit "check-$1" \
+			$sat_checker --CML_HEAP_SIZE=26000 --CML_STACK_SIZE=2000 \
+			"${TMP}/$2.cnf" "$proof" > "${TMP}/$2.check"
+		checker_res=$?
+		cat "${TMP}/$2.check"
+		# CakeLRUP can return zero on errors; require its verification result.
+		grep -qxF 's VERIFIED UNSAT' "${TMP}/$2.check" || checker_res=1
+		wait "$solver_pid"
+		solver_res=$?
+		if [ $solver_res -ne 20 ]; then
+			echo "Error: $1 check failed"
+			exit 1
+		fi
+		if [ $checker_res -ne $expected ]; then
+			echo "Error: $1 proof check failed"
+			exit 1
+		fi
+		rm -f "$proof"
+	else
+		$limit "$1" \
+			$sat_solver $SAT_OPTIONS "${TMP}/$2.cnf"
+		if [ $? -ne 20 ]; then
+			echo "Error: $1 check failed"
+			exit 1
+		fi
+	fi
+}
+
+PIDS=()
+t="$(date +%s%N)"
+for aig in "$TMP"/*.aig; do
+	[ "$aig" = "$check".aig ] && continue
+	base="$(basename "$aig")"
+	name="${base%.aig}"
+	if $SEQUENTIAL; then
+		sat "$name" "$base" || {
+			echo $(basename "$0"): Certificate check failed.
+			exit 1
+		}
+	else
+		(sat "$name" "$base") &
+		PIDS+=($!)
+	fi
+done
+res=0
+for pid in "${PIDS[@]}"; do
+	wait "$pid" || res=1
+done
+t="$(($(date +%s%N) - t))"
+t="$(printf '%d.%09d' "$((t / 1000000000))" "$((t % 1000000000))")"
+echo "$(basename "$0"): t_total: $t"
+[ $res -ne 0 ] && exit 1
+echo "$(basename "$0"): Certificate check passed"

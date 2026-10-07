@@ -1,0 +1,16 @@
+.git
+.venv
+all
+sub
+smoketest
+**/log-*
+**/__pycache__
+caketaiger.tar
+caketaiger.tar.xz
+caketaiger.zip
+src/aiger
+src/cadical
+src/certifaiger
+src/runlim
+src/nuxmv
+src/caketaiger-artifacts

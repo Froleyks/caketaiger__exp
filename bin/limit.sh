@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+bin="$(cd -- "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd -P)"
+runlim="$bin"/runlim
+for i in runlim; do
+    [ ! -x "${!i}" ] && echo "$(basename "$0"): missing executable $i (${!i})" >&2 && exit 1
+done
+[ $# -lt 1 ] && echo "usage: $(basename "$0") <executable>" && exit 0
+
+log=/dev/null
+name=$1
+shift
+
+[[ -n "${LIMIT_LOG:-}" ]] && log="${LIMIT_LOG}-$name.run"
+
+echo "$(basename "$0") $name to ${TIME:-unlimited} seconds and ${SPACE:-unlimited} MB"
+
+cmd=("$runlim" --propagate --single -o "$log")
+[[ -n "${TIME:-}" ]] && cmd+=(--real-time-limit="$TIME")
+[[ -n "${SPACE:-}" ]] && cmd+=(--space-limit="$SPACE")
+cmd+=("$@")
+[[ -n "${TIME:-}" ]] && cmd=(timeout --kill-after=1s "$((TIME + 10))s" bash -c '( "$@" )' bash "${cmd[@]}")
+
+t="$(date +%s%N)"
+"${cmd[@]}"
+res=$?
+t="$(($(date +%s%N) - t))"
+t="$(printf '%d.%09d' "$((t / 1000000000))" "$((t % 1000000000))")"
+echo "t_$name: $t"
+exit $res
