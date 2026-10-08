@@ -17,6 +17,10 @@ shopt -s nullglob
 \usepackage{multirow}
 \usepackage[table]{xcolor}
 \newcommand{\bft}{\bfseries}
+\usepackage{xspace}
+\providecommand{\toolnameformat}[1]{\textsc{#1}\xspace}
+\providecommand{\caketaiger}{\toolnameformat{Caketaiger}}
+\providecommand{\certifaiger}{\toolnameformat{Certifaiger}}
 \begin{document}
 EOF
     for f in *.tex; do

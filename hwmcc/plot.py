@@ -8,7 +8,12 @@ import pandas as pd
 
 plt.rcParams.update({"font.size": 14, "axes.labelsize": 14, "axes.titlesize": 14,
                      "xtick.labelsize": 14, "ytick.labelsize": 14,
-                     "legend.fontsize": 14, "legend.title_fontsize": 14})
+                     "legend.fontsize": 14, "legend.title_fontsize": 14,
+                     "text.usetex": True,
+                     "text.latex.preamble": r"\usepackage{xspace}"
+                     r"\providecommand{\toolnameformat}[1]{\textsc{#1}\xspace}"
+                     r"\providecommand{\caketaiger}{\toolnameformat{Caketaiger}}"
+                     r"\providecommand{\certifaiger}{\toolnameformat{Certifaiger}}"})
 
 invalid = '''
 aic3_bitlevel_safety_2019_wolf_2019C_qspiflash_dualflexpress_divthree-p120.aig
@@ -21,12 +26,12 @@ ric3-multi_bitlevel_safety_2025_hkust_benchmarks_output_btor2_example_499_miter_
 avy_bitlevel_safety_2024_sosylab_product-lines_elevator_spec3_product18.cil.aig
 '''.split()
 labels = {
-    "certifaiger": "Certifaiger COI+XOR+ITE+PG",
-    "certifaiger-plain": "Certifaiger None",
-    "certifaiger-coi": "Certifaiger COI",
-    "certifaiger-coi+xor": "Certifaiger COI+XOR",
-    "certifaiger-coi+xor+ite": "Certifaiger COI+XOR+ITE",
-    "caketaiger": "Caketaiger",
+    "certifaiger": r"\certifaiger COI+XOR+ITE+PG",
+    "certifaiger-plain": r"\certifaiger None",
+    "certifaiger-coi": r"\certifaiger COI",
+    "certifaiger-coi+xor": r"\certifaiger COI+XOR",
+    "certifaiger-coi+xor+ite": r"\certifaiger COI+XOR+ITE",
+    "caketaiger": r"\caketaiger",
 }
 
 src, out, timeout = argv[1:]
@@ -45,9 +50,7 @@ n = d.name.nunique()
 t = d.groupby("dir")[["ratio", "gen"]].mean().loc[cfgs]
 t["timeout"] = (d.status == "timeout").groupby(d.dir).sum()
 t["par2"] = d.check.where(d.status == "ok", 2 * timeout).groupby(d.dir).mean()
-table_labels = {c: r"\textsc{" + tool + "}" + (" " + opt if opt else "")
-                for c, label in labels.items() for tool, _, opt in [label.partition(" ")]}
-rows = [[table_labels[c], *(f"{v:.2f}".rstrip("0").rstrip(".") for v in row)]
+rows = [[labels[c], *(f"{v:.2f}".rstrip("0").rstrip(".") for v in row)]
         for c, row in t.iterrows()]
 widths = [max(col, key=len) for col in zip(*(row[1:] for row in rows))]
 with open(f"{out}.tex", "w") as f:
@@ -102,12 +105,12 @@ for metric, title in [("gen", "Generation"), ("check", "Checking")]:
         right = y[status.certifaiger == "timeout"].dropna()
         ax.scatter(top, [1.025] * len(top), transform=ax.get_xaxis_transform(),
                    clip_on=False, marker="x", color="tab:red", s=64,
-                   label=f"Caketaiger timeout ({len(top)})")
+                   label=rf"\caketaiger timeout ({len(top)})")
         ax.scatter([1.025] * len(right), right, transform=ax.get_yaxis_transform(),
                    clip_on=False, marker="x", color="tab:green", s=64,
-                   label=f"Certifaiger timeout ({len(right)})")
+                   label=rf"\certifaiger timeout ({len(right)})")
     ax.set(xscale="log", yscale="log", xlim=(lo, hi), ylim=(lo, hi),
-           xlabel=f"Certifaiger {title.lower()} (s)", ylabel=f"Caketaiger {title.lower()} (s)")
+           xlabel=rf"\certifaiger {title.lower()} (s)", ylabel=rf"\caketaiger {title.lower()} (s)")
     ax.set_aspect("equal", adjustable="box")
     ax.grid(alpha=0.25)
     fig.legend(loc="upper center", bbox_to_anchor=(0.5, 0.17), ncol=2, frameon=False,

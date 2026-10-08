@@ -25,7 +25,7 @@ with open(f"{out}.tex", "w") as f:
     f.write(r"\noindent\begin{minipage}{\linewidth}\begin{center}" + "\n")
     f.write(r"\setlength{\tabcolsep}{8pt}" + "\n")
     f.write(r"\begin{tabular}{lrrr}\toprule" + "\n")
-    heads = [r"\textsc{Certifaiger} (s)", r"\textsc{Caketaiger} (s)", r"\textsc{pvs} (s)"]
+    heads = [r"\certifaiger (s)", r"\caketaiger (s)", r"\textsc{pvs} (s)"]
     f.write("Benchmark & " + " & ".join(r"\multicolumn{1}{c}{" + h + "}" for h in heads)
             + r" \\ \midrule" + "\n")
     for i, (name, *cells) in enumerate(rows):

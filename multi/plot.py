@@ -44,7 +44,7 @@ fmt = lambda v: f"{v:.4f}" if v != "" else ""
 widths = [max(map(fmt, col), key=len) for col in zip(*(row[1:] for row in rows))]
 with open(f"{out}-checks.tex", "w") as f:
     f.write(r"\begin{center}\begin{tabular}{lrr@{}p{8pt}@{}rr}\toprule" + "\n")
-    f.write(r" & \multicolumn{2}{c}{\textsc{Caketaiger}} & & \multicolumn{2}{c}{\textsc{Certifaiger}} \\" + "\n")
+    f.write(r" & \multicolumn{2}{c}{\caketaiger} & & \multicolumn{2}{c}{\certifaiger} \\" + "\n")
     f.write(r"\cmidrule(lr){2-3}\cmidrule(lr){5-6}" + "\n")
     heads = ["Clause/gate", "Time (s)", "Clause/gate", "Time (s)"]
     heads = [r"\multicolumn{1}{c}{" + h + "}" for h in heads]
