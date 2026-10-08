@@ -6,9 +6,9 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 
-plt.rcParams.update({"font.size": 14, "axes.labelsize": 14, "axes.titlesize": 14,
-                     "xtick.labelsize": 14, "ytick.labelsize": 14,
-                     "legend.fontsize": 14, "legend.title_fontsize": 14,
+plt.rcParams.update({"font.size": 15, "axes.labelsize": 16, "axes.titlesize": 15,
+                     "xtick.labelsize": 15, "ytick.labelsize": 15,
+                     "legend.fontsize": 15, "legend.title_fontsize": 15,
                      "text.usetex": True,
                      "text.latex.preamble": r"\usepackage{xspace}"
                      r"\providecommand{\toolnameformat}[1]{\textsc{#1}\xspace}"
@@ -46,6 +46,25 @@ ok = d[d.status == "ok"]
 cfgs = ok.groupby("dir", sort=False).size().sort_values(ascending=False).index
 n = d.name.nunique()
 
+pair = ["caketaiger", "certifaiger"]
+solved = ok[ok.dir.isin(pair)].groupby("name").size()
+common = d[d.dir.isin(pair) & d.name.isin(solved[solved == 2].index)]
+totals = common.groupby("dir")[["gen", "check"]].sum()
+totals["total"] = totals.gen + totals.check
+print(f"HWMCC: {n} retained benchmarks; {common.name.nunique()} solved by both (times in s)")
+for cfg, label in zip(pair, ["Caketaiger", "certifaiger-default"]):
+    r = d[d.dir == cfg]
+    print(f"{label}: generation (all {len(r)}, total/mean/median): "
+          f"{r.gen.sum():.2f}/{r.gen.mean():.2f}/{r.gen.median():.2f}")
+    r = common[common.dir == cfg].copy()
+    r["total"] = r.gen + r.check
+    for statistic, heading in [("sum", "total"), ("mean", "mean"), ("median", "median")]:
+        t = r[["gen", "check", "total"]].agg(statistic)
+        print(f"  generation/checking/combined (intersection, {heading}): "
+              f"{t.gen:.2f}/{t.check:.2f}/{t.total:.2f}")
+pct = 100 * (totals.loc["caketaiger", "total"] / totals.loc["certifaiger", "total"] - 1)
+print(f"Caketaiger is {abs(pct):.2f}% {'slower' if pct >= 0 else 'faster'} than certifaiger-default (combined, intersection)")
+
 # Mean generation measurements and checking PAR-2.
 t = d.groupby("dir")[["ratio", "gen"]].mean().loc[cfgs]
 t["timeout"] = (d.status == "timeout").groupby(d.dir).sum()
@@ -77,7 +96,7 @@ for i, c in enumerate(cfgs):
             marker="o", markersize=2.5, alpha=0.8, markevery=range(1, len(times) + 1),
             zorder=2 + len(cfgs) - i, label=f"{len(times)} {labels[c]}")
 ax.set(xscale="log", xlim=(lo, hi), ylim=(0, n * 1.02),
-       xlabel="Check time (s)", ylabel="Cumulative benchmarks solved")
+       xlabel="Time (s)", ylabel="Checked Certificates")
 ax.grid(alpha=0.25)
 ax.legend(loc="lower right")
 fig.tight_layout()
@@ -85,8 +104,8 @@ fig.savefig(f"{out}-cdf.pdf")
 plt.close(fig)
 
 status = d.pivot(index="name", columns="dir", values="status")
-plt.rcParams.update({"font.size": 16, "axes.labelsize": 16, "xtick.labelsize": 14,
-                     "ytick.labelsize": 14, "legend.fontsize": 16})
+plt.rcParams.update({"font.size": 16, "axes.labelsize": 16, "xtick.labelsize": 15,
+                     "ytick.labelsize": 15, "legend.fontsize": 16})
 for metric, title in [("gen", "Generation"), ("check", "Checking")]:
     times = d.pivot(index="name", columns="dir", values=metric)[["certifaiger", "caketaiger"]]
     if metric == "check":
@@ -94,6 +113,7 @@ for metric, title in [("gen", "Generation"), ("check", "Checking")]:
     x, y = times.certifaiger, times.caketaiger
     lo, hi = times.min().min() / 1.2, times.max().max() * 1.2
     ratio = (y / x).median()
+    print(f"{title}: median Caketaiger/certifaiger-default ratio: {ratio:.2f}")
     start, end = max(lo, lo / ratio), min(hi, hi / ratio)
     fig, ax = plt.subplots(figsize=(6, 6))
     ax.plot([lo, hi], [lo, hi], "--", color="gray", label="Equal time")
@@ -116,5 +136,5 @@ for metric, title in [("gen", "Generation"), ("check", "Checking")]:
     fig.legend(loc="upper center", bbox_to_anchor=(0.5, 0.17), ncol=2, frameon=False,
                handlelength=1.2, handletextpad=0.4, columnspacing=0.8)
     fig.tight_layout(rect=(0, 0.16, 1, 1))
-    fig.savefig(f"{out}-scatter-certifaiger-caketaiger-{metric}.pdf")
+    fig.savefig(f"{out}-scatter-certifaiger-caketaiger-{metric}.pdf", bbox_inches="tight", pad_inches=0.3)
     plt.close(fig)
