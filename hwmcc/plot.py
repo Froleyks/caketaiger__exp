@@ -29,6 +29,7 @@ src, out, timeout = argv[1:]
 timeout = float(timeout)
 d = pd.read_csv(src)
 d = d[~d.name.isin(Path(__file__).with_name("invalid").read_text().split())].copy()
+d.loc[d.status == "incomplete", "status"] = "timeout"
 d["gen"] = d[["generation", "split", *d.filter(regex="^cnf_")]].sum(axis=1)
 d["check"] = d.filter(regex="^check_").sum(axis=1)
 d["ratio"] = d.filter(regex="^clauses_").sum(axis=1) / d.witness_M
