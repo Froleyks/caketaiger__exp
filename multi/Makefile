@@ -31,9 +31,9 @@ $(BENCHMARKS) &: make_benchmarks.sh Makefile ../Makefile
 	./$<
 	../bin/pack.py our-data benchmarks-*
 	for i in benchmarks-*; do \
-		cp $$i $$i-all; \
 		head -2 $$i > $$i-smoketest; \
 		cp $$i $$i-sub; \
+		mv $$i $$i-all; \
 	done
 	../bin/pack.py our-data benchmarks-*-sub $(SUBSET)
 

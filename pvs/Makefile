@@ -28,11 +28,16 @@ $(BENCHMARKS) &: make_benchmarks.sh Makefile ../Makefile
 	./$<
 	../bin/pack.py our-data benchmarks-*
 	for i in benchmarks-*; do \
-		cp $$i $$i-all; \
 		head -2 $$i > $$i-smoketest; \
 		cp $$i $$i-sub; \
+		mv $$i $$i-all; \
 	done
+	# awk 'NR==FNR { names[$$NF]; next } $$NF in names' benchmarks-pvs-smoketest benchmarks-caketaiger > benchmarks-caketaiger-smoketest
 	../bin/pack.py our-data benchmarks-*-sub $(SUBSET)
+	# awk 'NR==FNR { names[$$NF]; next } $$NF in names' benchmarks-pvs-sub benchmarks-caketaiger-sub > benchmarks-paired
+	# awk 'NR==FNR { names[$$NF]; next } $$NF in names' benchmarks-paired benchmarks-pvs-sub > benchmarks-pvs-sub.tmp
+	# mv benchmarks-paired benchmarks-caketaiger-sub
+	# mv benchmarks-pvs-sub.tmp benchmarks-pvs-sub
 
 clean:
 	rm -rf benchmarks-* log-* data-* *.pdf *.tex
