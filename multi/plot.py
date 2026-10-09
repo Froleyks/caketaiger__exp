@@ -11,7 +11,9 @@ d["Checking (s)"] = d.filter(regex="^check_").sum(axis=1, min_count=1)
 
 d["witness"] = d.name.str.split("-", n=1).str[1]
 d["total"] = d["Generation (s)"] + d["Checking (s)"]
-d = d[d.groupby("witness")["total"].transform("max") > 5].copy()
+hard = d.groupby("witness")["total"].transform("max") > 5
+if hard.any():
+    d = d[hard].copy()
 d["max_check"] = d.groupby("witness")["Checking (s)"].transform("max")
 d["engine_order"] = d.name.str.split("-", n=1).str[0].map(
     {"l2s": 0, "rlive": 1, "k": 2, "stable": 3})
