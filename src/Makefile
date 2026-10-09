@@ -4,7 +4,7 @@ SHELL := bash
 bin := $(abspath ../bin)
 
 all: $(bin)/certifaiger $(bin)/aigsplit $(bin)/aigtoaig $(bin)/aigtocnf \
-	$(bin)/cadical $(bin)/runlim $(bin)/caketaiger $(bin)/cake_lrup $(bin)/tectonic $(bin)/proveit $(bin)/pvs-theories
+	$(bin)/cadical $(bin)/runlim $(bin)/caketaiger $(bin)/cake_lrup $(bin)/tectonic $(bin)/proveit $(bin)/pvs-sbclisp $(bin)/pvs-theories
 
 aiger:
 	$(call clone,aiger,https://github.com/arminbiere/aiger.git,039ec1a2cc37d3093ac35c4b6df65336b346f409)
@@ -56,17 +56,19 @@ $(bin)/tectonic:
 	tar -xzf tectonic.tar.gz tectonic
 	install -m755 tectonic $@
 
-$(bin)/proveit $(bin)/pvs-theories &: pvs.tar.xz
+$(bin)/proveit $(bin)/pvs-sbclisp $(bin)/pvs-theories &: pvs.tar.xz
 	tar -xJf $< nuxmv/PVS \
 		nuxmv/Certifying_Rlive_25/PVS_theories/rlive_theories_andproofs_certificates
 	mkdir -p $(bin)/pvs-theories
 	cp nuxmv/Certifying_Rlive_25/PVS_theories/rlive_theories_andproofs_certificates/{*.pvs,*.prf,pvs-strategies} $(bin)/pvs-theories/
 	cd nuxmv/PVS
+	sed -i 's/(character i)/(code-char i)/' src/pp-tex.lisp
 	unset SBCL_HOME
 	./configure
 	$(MAKE) -j1
 	$(MAKE) -j1
 	ln -sf ../src/nuxmv/PVS/proveit $(bin)/proveit
+	ln -sf ../src/nuxmv/PVS/bin/ix86_64-Linux/runtime/pvs-sbclisp $(bin)/pvs-sbclisp
 
 portable: $(bin)/pvs.sif
 $(bin)/pvs.sif: pvs.def pvs.tar.xz

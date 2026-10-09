@@ -20,6 +20,7 @@
 /bin/caketaiger
 /bin/cake_lrup
 /bin/proveit
+/bin/pvs-sbclisp
 /src/aiger/
 /src/cadical/
 /src/certifaiger/
