@@ -34,7 +34,8 @@ d["gen"] = d[["generation", "split", *d.filter(regex="^cnf_")]].sum(axis=1)
 d["check"] = d.filter(regex="^check_").sum(axis=1)
 d["ratio"] = d.filter(regex="^clauses_").sum(axis=1) / d.witness_M
 ok = d[d.status == "ok"]
-cfgs = ok.groupby("dir", sort=False).size().sort_values(ascending=False).index
+cfgs = ["caketaiger", "certifaiger", "certifaiger-coi+xor+ite",
+        "certifaiger-coi+xor", "certifaiger-coi", "certifaiger-plain"]
 n = d.name.nunique()
 
 pair = ["caketaiger", "certifaiger"]

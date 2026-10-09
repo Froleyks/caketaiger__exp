@@ -35,7 +35,7 @@ pilot:
 benchmarks.tar.xz: multi/model multi/witness pvs/model pvs/nuxmv pvs/voiraig
 	tar -I 'xz -9e' -cf $@ $^
 
-dry: | .venv
+dry: | .venv multi/witness
 	for i in $(EXPERIMENTS); do \
 		$(MAKE) -C $$i benchmarks; \
 		./bin/pack.py $$i/our-data $$i/benchmarks-*-all $(SUBSET) --dry $$i/data-sub; \
