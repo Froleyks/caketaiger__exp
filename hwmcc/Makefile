@@ -28,10 +28,11 @@ $(BENCHMARKS) &: make_benchmarks.sh Makefile ../Makefile | download
 	./$<
 	../bin/pack.py our-data benchmarks-*
 	for i in benchmarks-*; do \
-		head -2 $$i > $$i-smoketest; \
 		cp $$i $$i-sub; \
 		mv $$i $$i-all; \
+		grep -E ' (ric3-multi|aic3)_bitlevel_safety_2019_goel_opensource_vis_QF_BV_bcuvis32_vis_QF_BV_bcuvis32\.aig$$' $$i-all > $$i-smoketest; \
 	done
+	../bin/pack.py our-data benchmarks-*-smoketest
 	../bin/pack.py our-data benchmarks-*-sub $(SUBSET)
 
 download: model/.downloaded witness/.downloaded

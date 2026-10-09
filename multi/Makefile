@@ -31,10 +31,11 @@ $(BENCHMARKS) &: make_benchmarks.sh Makefile ../Makefile
 	./$<
 	../bin/pack.py our-data benchmarks-*
 	for i in benchmarks-*; do \
-		head -2 $$i > $$i-smoketest; \
 		cp $$i $$i-sub; \
 		mv $$i $$i-all; \
+		grep -E ' (stable-lmcs06counter0|k-cucnt3)$$' $$i-all > $$i-smoketest; \
 	done
+	../bin/pack.py our-data benchmarks-*-smoketest
 	../bin/pack.py our-data benchmarks-*-sub $(SUBSET)
 
 clean:
