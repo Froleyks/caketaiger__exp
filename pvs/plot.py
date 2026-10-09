@@ -8,6 +8,7 @@ def cell(s):
 
 src, out = argv[1:]
 d = pd.read_csv(src)
+d.loc[(d.dir == "pvs") & (d.status == "error-1"), "status"] = "memout"
 cfgs = ["caketaiger", "pvs"]
 d["total"] = d.time.where(d.status == "ok")
 times = d.pivot(index="name", columns="dir", values="total")[cfgs]
