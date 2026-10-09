@@ -31,8 +31,15 @@ multi/witness:
 pilot:
 	$(MAKE) all TIME=10
 	for i in $(EXPERIMENTS); do cp $$i/data-all $$i/our-data; done
+
 benchmarks.tar.xz: multi/model multi/witness pvs/model pvs/nuxmv pvs/voiraig
 	tar -I 'xz -9e' -cf $@ $^
+
+dry: | .venv
+	for i in $(EXPERIMENTS); do \
+		$(MAKE) -C $$i benchmarks; \
+		./bin/pack.py $$i/our-data $$i/benchmarks-*-all $(SUBSET) --dry $$i/data-sub; \
+	done; $(MAKE) sub
 
 CONTAINER ?= $(firstword $(shell command -v podman 2>/dev/null) $(shell command -v docker 2>/dev/null))
 container-%: load
@@ -58,6 +65,9 @@ load:
 	@$(CONTAINER) start $(NAME)
 $(NAME).tar.xz:
 	git archive -o /tmp/$(NAME).tar HEAD
+	for i in hwmcc/hwmcc25-benchmarks-bitlevel-safety.tar.gz hwmcc/hwmcc25-logfiles.tar.gz; do \
+		if [ -f "$$i" ]; then tar -rf /tmp/$(NAME).tar "$$i"; fi; \
+	done
 	$(CONTAINER) build -t $(NAME) - < /tmp/$(NAME).tar
 	rm /tmp/$(NAME).tar
 	$(CONTAINER) save -o $(NAME).tar $(NAME)
@@ -78,7 +88,8 @@ export PATH := $(abspath .venv)/bin:$(PATH)
 .venv:
 	uv venv .venv
 	uv pip install pandas matplotlib
-
+our-data:
+	for i in $(EXPERIMENTS); do cp $$i/our-data $$i/data-all; done
 clean: stop
 	rm -rf all sub smoketest all.pdf sub.pdf smoketest.pdf
 	for i in $(EXPERIMENTS); do $(MAKE) -C $$i clean; done
@@ -86,4 +97,4 @@ clean: stop
 	-$(CONTAINER) rm -f $(NAME)
 	-$(CONTAINER) rmi -f $(NAME)
 
-.PHONY: $(EXPERIMENTS) stop clean enter extract load container-% pilot
+.PHONY: $(EXPERIMENTS) stop clean enter extract load container-% pilot dry our-data

@@ -28,11 +28,9 @@ ENV UV_PYTHON_INSTALL_DIR=/app/uv-python
 RUN uv venv --python 3.13
 ENV PATH="/app/.venv/bin/:$PATH"
 RUN uv pip install pandas matplotlib
+
 # run
 COPY . .
-RUN rm -rf .git
-RUN make smoketest
-# Populate the TeX cache during image preparation; no experiment runs.
-RUN mkdir -p /tmp/tex-cache && bin/tex.sh /tmp/tex-cache && rm -rf /tmp/tex-cache /tmp/tex-cache.pdf
+RUN rm -rf .git && make smoketest && make clean && make our-data
 
 CMD ["bash"]

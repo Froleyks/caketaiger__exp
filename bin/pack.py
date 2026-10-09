@@ -10,7 +10,7 @@ import re
 from sys import argv, exit
 
 if len(argv) < 2:
-    print("Usage: pack.py data [lists...] [--column <allowed values>] [--sub <seconds>] [--dry]")
+    print("Usage: pack.py data [lists...] [--column <allowed values>] [--sub <seconds>] [--dry <file>]")
     exit(1)
     
 data = argv[1]
@@ -44,10 +44,10 @@ for part in parts:
             print("Invalid subset time:", value)
             exit(1)
     elif key == "dry":
-        if len(part) != 1:
-            print("Usage: --dry")
+        if len(part) != 2:
+            print("Usage: --dry <file>")
             exit(1)
-        dry = True
+        dry = part[1]
     elif len(part) < 2:
         print(f"Usage: --{key} <allowed values>")
         exit(1)
@@ -163,4 +163,4 @@ for benchmarks_file, entries in lists.items():
 if dry:
     selected = pd.DataFrame(selected_rows, columns=["dir", "name"]).drop_duplicates()
     simulated = d.merge(selected, on=["dir", "name"], how="inner")
-    simulated.to_csv(data + '-sub', index=False)
+    simulated.to_csv(dry, index=False)
