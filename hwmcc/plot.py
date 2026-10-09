@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """HWMCC summary, checking CDF and Certifaiger/Caketaiger comparisons."""
+from pathlib import Path
 from sys import argv
 import matplotlib
 matplotlib.use("Agg")
@@ -15,16 +16,6 @@ plt.rcParams.update({"font.size": 15, "axes.labelsize": 16, "axes.titlesize": 15
                      r"\providecommand{\caketaiger}{\toolnameformat{Caketaiger}}"
                      r"\providecommand{\certifaiger}{\toolnameformat{Certifaiger}}"})
 
-invalid = '''
-aic3_bitlevel_safety_2019_wolf_2019C_qspiflash_dualflexpress_divthree-p120.aig
-aic3_bitlevel_safety_2020_mann_stack-p0.aig
-avy_bitlevel_safety_2025_hkust_benchmarks_output_btor2_example_301_miter_miter.aig
-ric3-multi_bitlevel_safety_2024_sosylab_floats-esbmc-regression_Float_div.i.p+cfa-reducer.aig
-ric3-multi_bitlevel_safety_2024_sosylab_loops-crafted-1_sumt3.aig
-ric3-multi_bitlevel_safety_2025_hkust_benchmarks_output_btor2_example_263_miter_miter.aig
-ric3-multi_bitlevel_safety_2025_hkust_benchmarks_output_btor2_example_499_miter_miter.aig
-avy_bitlevel_safety_2024_sosylab_product-lines_elevator_spec3_product18.cil.aig
-'''.split()
 labels = {
     "certifaiger": r"\certifaiger COI+XOR+ITE+PG",
     "certifaiger-plain": r"\certifaiger None",
@@ -37,8 +28,7 @@ labels = {
 src, out, timeout = argv[1:]
 timeout = float(timeout)
 d = pd.read_csv(src)
-d = d[~d.name.isin(invalid)].copy()
-d.loc[d.status == "incomplete", "status"] = "timeout"
+d = d[~d.name.isin(Path(__file__).with_name("invalid").read_text().split())].copy()
 d["gen"] = d[["generation", "split", *d.filter(regex="^cnf_")]].sum(axis=1)
 d["check"] = d.filter(regex="^check_").sum(axis=1)
 d["ratio"] = d.filter(regex="^clauses_").sum(axis=1) / d.witness_M
@@ -69,7 +59,9 @@ print(f"Caketaiger is {abs(pct):.2f}% {'slower' if pct >= 0 else 'faster'} than 
 t = d.groupby("dir")[["ratio", "gen"]].mean().loc[cfgs]
 t["timeout"] = (d.status == "timeout").groupby(d.dir).sum()
 t["par2"] = d.check.where(d.status == "ok", 2 * timeout).groupby(d.dir).mean()
-rows = [[labels[c], *(f"{v:.2f}".rstrip("0").rstrip(".") for v in row)]
+rows = [[labels[c], *(f"{v:.2f}" if i in (1, 3) else
+                       f"{v:.2f}".rstrip("0").rstrip(".")
+                       for i, v in enumerate(row))]
         for c, row in t.iterrows()]
 widths = [max(col, key=len) for col in zip(*(row[1:] for row in rows))]
 with open(f"{out}.tex", "w") as f:
@@ -81,9 +73,45 @@ with open(f"{out}.tex", "w") as f:
     heads.insert(2, "")
     f.write("Checker & " + " & ".join(heads)
             + r" \\ \midrule" + "\n")
+    minima = t.min().to_numpy()
+    for (name, *cells), values in zip(rows, t.to_numpy()):
+        cells = [r"\multicolumn{1}{c}{\phantom{" + w + r"}\llap{"
+                 + (r"{\bft " + v + "}" if value == minimum else v) + "}}"
+                 for w, v, value, minimum in zip(widths, cells, values, minima)]
+        cells.insert(2, "")
+        f.write(" & ".join([name, *cells]) + r" \\" + "\n")
+    f.write(r"\bottomrule\end{tabular}\end{center}" + "\n")
+
+checks = [c.removeprefix("check_") for c in d.filter(regex="^check_")]
+rows = [[c] for c in [*checks, "All", "Generation"]]
+for cfg in ["caketaiger", "certifaiger"]:
+    r = d[d.dir == cfg]
+    vals = [((r[f"clauses_{c}"] / r.witness_M).mean(), r[f"check_{c}"].mean()) for c in checks]
+    vals.append((r.ratio.mean(), r.check.mean()))
+    for row, (ratio, time) in zip(rows, vals):
+        row.extend([ratio, time])
+    rows[-1].extend(["", r.gen.mean()])
+
+maxima = [max(col) for col in zip(*(row[1:] for row in rows[:len(checks)]))]
+fmt = lambda v, i: (f"{v:.2f}" if i % 2 else f"{v:.4f}") if v != "" else ""
+widths = [max((fmt(v, i) for v in col), key=len)
+          for i, col in enumerate(zip(*(row[1:] for row in rows)))]
+with open(f"{out}-checks.tex", "w") as f:
+    f.write(r"\begin{center}\begin{tabular}{lrr@{}p{8pt}@{}rr}\toprule" + "\n")
+    f.write(r" & \multicolumn{2}{c}{\caketaiger} & & \multicolumn{2}{c}{\certifaiger} \\" + "\n")
+    f.write(r"\cmidrule(lr){2-3}\cmidrule(lr){5-6}" + "\n")
+    heads = ["Clause/gate", "Time (s)", "Clause/gate", "Time (s)"]
+    heads = [r"\multicolumn{1}{c}{" + h + "}" for h in heads]
+    heads.insert(2, "")
+    f.write("Check & " + " & ".join(heads)
+            + r" \\ \midrule" + "\n")
     for name, *cells in rows:
-        cells = [r"\multicolumn{1}{c}{\phantom{" + w + r"}\llap{" + v + "}}"
-                 for w, v in zip(widths, cells)]
+        if name in ("All", "Generation"):
+            f.write(r"\midrule" + "\n")
+        cells = [r"\multicolumn{1}{c}{\phantom{" + w + r"}\llap{"
+                 + (r"{\bft " + fmt(v, i) + "}"
+                    if name in checks and v == m else fmt(v, i)) + "}}"
+                 for i, (w, v, m) in enumerate(zip(widths, cells, maxima))]
         cells.insert(2, "")
         f.write(" & ".join([name, *cells]) + r" \\" + "\n")
     f.write(r"\bottomrule\end{tabular}\end{center}" + "\n")

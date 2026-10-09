@@ -2,7 +2,7 @@ SHELL := bash
 .IGNORE:
 -include ../config.mk
 
-CONFIGS := certifaiger caketaiger
+CONFIGS := caketaiger
 PARSING := @ time: @ status: @ memory: @ t_generation: generation @ t_split: split \
 	$(foreach check,Reset Transition Safety Liveness Base Inductive Decrease Closure Consistent,@ t_cnf-$(check): cnf_$(check) @ t_$(check): solve_$(check) @ t_check-$(check): check_$(check)) \
 	@ 'size model ' model_format 6 model_M 7 model_I 8 model_L 9 model_O 10 model_A 11 model_B 12 model_C 13 model_J 14 model_F 15 \
@@ -11,8 +11,11 @@ PARSING := @ time: @ status: @ memory: @ t_generation: generation @ t_split: spl
 
 BENCHMARKS := $(foreach goal,all sub smoketest,$(addsuffix -$(goal),$(addprefix benchmarks-,$(CONFIGS))))
 
-all sub smoketest: %: data-%
+all sub smoketest: %: data-% | model
 	./plot.py $< $(notdir $(CURDIR))-$@
+
+model:
+	tar -xJf ../benchmarks.tar.xz -C .. multi/model
 
 data-%: LOG = $(addsuffix -$*,$(addprefix log-,$(CONFIGS)))
 .SECONDEXPANSION:

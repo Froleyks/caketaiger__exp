@@ -1,63 +1,68 @@
 #!/usr/bin/env python3
-"""Multi-property benchmark summary and per-check means."""
+"""Model sizes and Caketiger witness timings, sorted by checking time."""
 from pathlib import Path
-from statistics import mean
 from sys import argv
 import pandas as pd
 
 src, out = argv[1:]
 d = pd.read_csv(src)
-d["gen"] = d[["generation", "split", *d.filter(regex="^cnf_")]].sum(axis=1)
-d["check"] = d.filter(regex="^check_").sum(axis=1)
-d["ratio"] = d.filter(regex="^clauses_").sum(axis=1) / d.witness_M
+d["Generation (s)"] = d.generation
+d["Checking (s)"] = d.filter(regex="^check_").sum(axis=1, min_count=1)
 
-if (Path(__file__).parent / "model").is_dir():
-    props = []
-    for name in d.name.unique():
-        path = Path(__file__).parent / "model" / f"{name.split('-', 1)[1]}.aig"
-        with path.open("rb") as f:
-            M, I, L, O, A, B, C, J, *F = map(int, f.readline().split()[1:])
-            for _ in range(L + O + B + C):
-                f.readline()
-            q = [int(f.readline()) + sum(F) for _ in range(J)]
-        props.append((O + B, J, C, q))
-    p, j, c, q = zip(*props)
-    max_signals = [max(signals) for signals in q if signals]
-    print(f"The {len(props)} benchmarks have")
-    print(f"between {min(p)} and {max(p)} safety properties (mean {mean(p):.2f}),")
-    print(f"between {min(j)} and {max(j)} liveness properties (mean {mean(j):.2f})")
-    print(f"with between {min(max_signals)} and {max(max_signals)} signals (mean {mean(max_signals):.2f}),")
-    print(f"and between {min(c)} and {max(c)} constraints (mean {mean(c):.2f}).")
+d["witness"] = d.name.str.split("-", n=1).str[1]
+d["total"] = d["Generation (s)"] + d["Checking (s)"]
+d = d[d.groupby("witness")["total"].transform("max") > 5].copy()
+d["max_check"] = d.groupby("witness")["Checking (s)"].transform("max")
+d["engine_order"] = d.name.str.split("-", n=1).str[0].map(
+    {"l2s": 0, "rlive": 1, "k": 2, "stable": 3})
 
-checks = [c.removeprefix("check_") for c in d.filter(regex="^check_")]
-rows = [[c] for c in [*checks, "All", "Generation"]]
-for cfg in ["caketaiger", "certifaiger"]:
-    r = d[d.dir == cfg]
-    vals = [((r[f"clauses_{c}"] / r.witness_M).mean(), r[f"check_{c}"].mean()) for c in checks]
-    vals.append((r.ratio.mean(), r.check.mean()))
-    for row, (ratio, time) in zip(rows, vals):
-        row.extend([ratio, time])
-    rows[-1].extend(["", r.gen.mean()])
+rows = []
+for _, row in d.sort_values(["max_check", "witness", "engine_order"],
+                            ascending=[False, True, True], kind="stable").iterrows():
+    path = Path(__file__).parent / "model" / f"{row['name'].split('-', 1)[1]}.aig"
+    with path.open("rb") as f:
+        header = f.readline().split()
+        sizes = list(map(int, header[1:]))
+        M, I, L, O, A, B, C, J, F = (sizes + [0] * 9)[:9]
+        for _ in range((I if header[0] == b"aag" else 0) + L + O + B + C):
+            f.readline()
+        q = [int(f.readline()) + F for _ in range(J)]
+    engine, name = row['name'].split('-', 1)
+    engine = {"k": "k-liveness", "l2s": "L2S", "rlive": "rLive", "stable": "stabilizer"}[engine]
+    rows.append([name, M, I, L, C, O + B,
+                 *[q[i] if i < J else "-" for i in range(2)], engine,
+                 row["Generation (s)"], row["Checking (s)"]])
 
-maxima = [max(col) for col in zip(*(row[1:] for row in rows[:len(checks)]))]
-fmt = lambda v: f"{v:.4f}" if v != "" else ""
-widths = [max(map(fmt, col), key=len) for col in zip(*(row[1:] for row in rows))]
+heads = ["Model", "M", "I", "L", "C", "P (O+B)", "Q1", "Q2", "Engine",
+         "Generate (s)", "Check (s)"]
+previous = None
+for row in rows:
+    if row[0] == previous:
+        row[:8] = [""] * 8
+    else:
+        previous = row[0]
+table = pd.DataFrame(rows, columns=heads)
+print(table.to_string(index=False, float_format=lambda v: f"{v:.2f}"))
+
+time_widths = [max((f"{row[i]:.2f}" for row in rows), key=len, default="0.00") for i in (-2, -1)]
+
 with open(f"{out}-checks.tex", "w") as f:
-    f.write(r"\begin{center}\begin{tabular}{lrr@{}p{8pt}@{}rr}\toprule" + "\n")
-    f.write(r" & \multicolumn{2}{c}{\caketaiger} & & \multicolumn{2}{c}{\certifaiger} \\" + "\n")
-    f.write(r"\cmidrule(lr){2-3}\cmidrule(lr){5-6}" + "\n")
-    heads = ["Clause/gate", "Time (s)", "Clause/gate", "Time (s)"]
-    heads = [r"\multicolumn{1}{c}{" + h + "}" for h in heads]
-    heads.insert(2, "")
-    f.write("Check & " + " & ".join(heads)
-            + r" \\ \midrule" + "\n")
+    f.write(r"\begin{table}[htbp]\centering" + "\n")
+    f.write(r"\caption{Multi-signal liveness model sizes and \caketaiger witness runtimes, grouped by model and ordered by the highest checking time per model.}\label{tab:multi-checks}" + "\n")
+    f.write(r"\begin{tabular*}{\linewidth}{@{}@{\extracolsep{\fill}}lrrrrrrr@{\extracolsep{0pt}\hspace{6pt}}|@{\hspace{6pt}}l@{\extracolsep{\fill}\hspace{4pt}}rr@{}}" + "\n")
+    tex_heads = ["Model", "M", "I", "L", "C", "P", r"Q\textsubscript{1}", r"Q\textsubscript{2}", "Engine",
+                 "Generate (s)", "Check (s)"]
+    tex_heads[-2:] = [r"\multicolumn{1}{c}{" + h + "}" for h in tex_heads[-2:]]
+    heading = r"\toprule" + "\n" + " & ".join(tex_heads) + r" \\ \midrule" + "\n"
+    f.write(heading)
+    previous = None
     for name, *cells in rows:
-        if name in ("All", "Generation"):
-            f.write(r"\midrule" + "\n")
-        cells = [r"\multicolumn{1}{c}{\phantom{" + w + r"}\llap{"
-                 + (r"{\bft " + fmt(v) + "}"
-                    if name in checks and v == m else fmt(v)) + "}}"
-                 for w, v, m in zip(widths, cells, maxima)]
-        cells.insert(2, "")
-        f.write(" & ".join([name, *cells]) + r" \\" + "\n")
-    f.write(r"\bottomrule\end{tabular}\end{center}" + "\n")
+        if name and previous is not None and name != previous:
+            f.write(r"\hline" + "\n")
+        if name:
+            previous = name
+        cells = [f"{v:.2f}" if isinstance(v, float) else str(v) for v in cells]
+        cells[-2:] = [r"\multicolumn{1}{c}{\phantom{" + w + r"}\llap{" + v + "}}"
+                      for w, v in zip(time_widths, cells[-2:])]
+        f.write(" & ".join([name.replace("_", r"\_"), *cells]) + r" \\" + "\n")
+    f.write(r"\bottomrule\end{tabular*}\end{table}" + "\n")

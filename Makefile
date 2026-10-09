@@ -22,7 +22,7 @@ $(EXPERIMENTS): | .venv \
 	$$(if $$(wildcard $$@/log-*-$(GOAL)),$(DEPS),$$(if $$(wildcard $$@/data-$(GOAL)),,$(DEPS)))
 	$(MAKE) --ignore-errors -C $@ $(GOAL)
 
-bin/%:
+$(filter bin/%,$(DEPS)) &:
 	$(MAKE) -C src
 
 multi/witness:

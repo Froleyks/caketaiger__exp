@@ -11,6 +11,7 @@ while read -r witness; do
     name=${witness#witness/}
     name=${name%/certificate.unsat}
     name=${name//\//_}
+    if grep -qxF "$name" invalid; then continue; fi
     for config in certifaiger certifaiger-plain certifaiger-coi certifaiger-coi+xor certifaiger-coi+xor+ite caketaiger; do
         case "$config" in
             certifaiger-plain) options="--no-coi --no-xor --no-ite --no-pg" ;;
