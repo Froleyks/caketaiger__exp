@@ -4,7 +4,7 @@ MAKEFLAGS += --no-print-directory
 
 NAME := caketaiger
 EXPERIMENTS := multi pvs hwmcc
-DEPS := multi/witness bin/runlim bin/certifaiger bin/aigsplit bin/aigtoaig bin/aigtocnf bin/cadical bin/caketaiger bin/cake_lrup bin/proveit bin/pvs-theories
+DEPS := multi/witness bin/runlim bin/certifaiger bin/aigsplit bin/aigtoaig bin/aigtocnf bin/cadical bin/caketaiger bin/cake_lrup bin/proveit bin/pvs-sbclisp bin/pvs-theories
 GOAL := $(or $(filter all sub smoketest,$(MAKECMDGOALS)),all)
 
 export SUBSET := --sub 28800
