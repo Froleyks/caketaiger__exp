@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""HWMCC summary, checking CDF and Certifaiger/Caketaiger comparisons."""
+"""HWMCC summary, combined runtime CDF and Certifaiger/Caketaiger comparisons."""
 from pathlib import Path
 from sys import argv
 import matplotlib
@@ -33,7 +33,48 @@ d.loc[d.status == "incomplete", "status"] = "timeout"
 d["gen"] = d[["generation", "split", *d.filter(regex="^cnf_")]].sum(axis=1)
 d["check"] = d.filter(regex="^check_").sum(axis=1)
 d["ratio"] = d.filter(regex="^clauses_").sum(axis=1) / d.witness_M
+# Scatter plots use the original statuses and all retained rows.
+status = d.pivot(index="name", columns="dir", values="status")
+plt.rcParams.update({"font.size": 16, "axes.labelsize": 16, "xtick.labelsize": 15,
+                     "ytick.labelsize": 15, "legend.fontsize": 16})
+for metric, title in [("gen", "Generation"), ("check", "Checking")]:
+    times = d.pivot(index="name", columns="dir", values=metric)[["certifaiger", "caketaiger"]]
+    if metric == "check":
+        times = times.where(status == "ok")
+    x, y = times.certifaiger, times.caketaiger
+    lo, hi = times.min().min() / 1.2, times.max().max() * 1.2
+    ratio = (y / x).median()
+    print(f"{title}: median Caketaiger/certifaiger-default ratio: {ratio:.2f}")
+    start, end = max(lo, lo / ratio), min(hi, hi / ratio)
+    fig, ax = plt.subplots(figsize=(6, 6))
+    ax.plot([lo, hi], [lo, hi], "--", color="gray", label="Equal time")
+    ax.scatter(x, y, s=48, alpha=0.7)
+    ax.plot([start, end], [ratio * start, ratio * end], color="tab:orange",
+            label=f"median ({ratio:.2f})")
+    if metric == "check":
+        top = x[status.caketaiger == "timeout"].dropna()
+        right = y[status.certifaiger == "timeout"].dropna()
+        ax.scatter(top, [1.025] * len(top), transform=ax.get_xaxis_transform(),
+                   clip_on=False, marker="x", color="tab:red", s=64,
+                   label=rf"\caketaiger timeout ({len(top)})")
+        ax.scatter([1.025] * len(right), right, transform=ax.get_yaxis_transform(),
+                   clip_on=False, marker="x", color="tab:green", s=64,
+                   label=rf"\certifaiger timeout ({len(right)})")
+    ax.set(xscale="log", yscale="log", xlim=(lo, hi), ylim=(lo, hi),
+           xlabel=rf"\certifaiger {title.lower()} (s)", ylabel=rf"\caketaiger {title.lower()} (s)")
+    ax.set_aspect("equal", adjustable="box")
+    ax.grid(alpha=0.25)
+    fig.legend(loc="upper center", bbox_to_anchor=(0.5, 0.17), ncol=2, frameon=False,
+               handlelength=1.2, handletextpad=0.4, columnspacing=0.8)
+    # Keep identical axes and page bounds despite the different legend heights.
+    fig.subplots_adjust(left=0.19, bottom=0.30, right=0.91, top=0.96)
+    fig.savefig(f"{out}-scatter-certifaiger-caketaiger-{metric}.pdf")
+    plt.close(fig)
+
 ok = d[d.status == "ok"]
+plt.rcParams.update({"font.size": 15, "axes.labelsize": 16,
+                     "xtick.labelsize": 15, "ytick.labelsize": 15,
+                     "legend.fontsize": 15})
 cfgs = ["caketaiger", "certifaiger", "certifaiger-coi+xor+ite",
         "certifaiger-coi+xor", "certifaiger-coi", "certifaiger-plain"]
 n = d.name.nunique()
@@ -57,21 +98,35 @@ for cfg, label in zip(pair, ["Caketaiger", "certifaiger-default"]):
 pct = 100 * (totals.loc["caketaiger", "total"] / totals.loc["certifaiger", "total"] - 1)
 print(f"Caketaiger is {abs(pct):.2f}% {'slower' if pct >= 0 else 'faster'} than certifaiger-default (combined, intersection)")
 
+# Tables and CDF classify any SAT call above 3602 seconds as a timeout.
+d.loc[(d.filter(regex="^solve_") > 3602).any(axis=1), "status"] = "timeout"
+ok = d[d.status == "ok"]
+
 # Mean generation measurements and checking PAR-2.
 t = d.groupby("dir")[["ratio", "gen"]].mean().loc[cfgs]
 t["timeout"] = (d.status == "timeout").groupby(d.dir).sum()
 t["par2"] = d.check.where(d.status == "ok", 2 * timeout).groupby(d.dir).mean()
-rows = [[labels[c], *(f"{v:.2f}" if i in (1, 3) else
+solved_all = d[(d.status == "ok") & d.dir.isin(cfgs)]
+solved_counts = solved_all.groupby("name").dir.nunique()
+common_names = solved_counts[solved_counts == len(cfgs)].index
+t["mean"] = solved_all[solved_all.name.isin(common_names)].groupby("dir").check.mean()
+t = t[["ratio", "gen", "timeout", "mean", "par2"]]
+table_labels = {c: label.replace(" ", r"\ {\fontsize{6}{7}\selectfont ", 1) + "}"
+                if " " in label else label for c, label in labels.items()}
+rows = [[table_labels[c], *(f"{v:.2f}" if i in (1, 3, 4) else
                        f"{v:.2f}".rstrip("0").rstrip(".")
                        for i, v in enumerate(row))]
         for c, row in t.iterrows()]
 widths = [max(col, key=len) for col in zip(*(row[1:] for row in rows))]
 with open(f"{out}.tex", "w") as f:
-    f.write(r"\begin{center}\begin{tabular}{lrr@{}p{8pt}@{}rr}\toprule" + "\n")
-    f.write(r" & \multicolumn{2}{c}{Generation} & & \multicolumn{2}{c}{Checking} \\" + "\n")
-    f.write(r"\cmidrule(lr){2-3}\cmidrule(lr){5-6}" + "\n")
-    heads = ["Clause/gate", "Time (s)", "Timeout", "PAR-2 (s)"]
+    f.write(r"\begin{center}\begin{tabular}{@{}l@{}rr@{}p{4pt}@{}rrr@{}}\toprule" + "\n")
+    f.write(r" & \multicolumn{2}{@{}c}{Generation} & & \multicolumn{3}{c@{}}{Checking} \\" + "\n")
+    f.write(r"\cmidrule(lr){2-3}\cmidrule(lr){5-7}" + "\n")
+    heads = ["Clause/gate", "Time (s)", r"{\small\texttt{\textgreater{}1h}}", r"Mean$_{\cap}$(s)",
+             "PAR-2 (s)"]
     heads = [r"\multicolumn{1}{c}{" + h + "}" for h in heads]
+    heads[0] = heads[0].replace("{c}", "{@{}c}", 1)
+    heads[-1] = heads[-1].replace("{c}", "{c@{}}", 1)
     heads.insert(2, "")
     f.write("Checker & " + " & ".join(heads)
             + r" \\ \midrule" + "\n")
@@ -80,6 +135,8 @@ with open(f"{out}.tex", "w") as f:
         cells = [r"\multicolumn{1}{c}{\phantom{" + w + r"}\llap{"
                  + (r"{\bft " + v + "}" if value == minimum else v) + "}}"
                  for w, v, value, minimum in zip(widths, cells, values, minima)]
+        cells[0] = cells[0].replace("{c}", "{@{}c}", 1)
+        cells[-1] = cells[-1].replace("{c}", "{c@{}}", 1)
         cells.insert(2, "")
         f.write(" & ".join([name, *cells]) + r" \\" + "\n")
     f.write(r"\bottomrule\end{tabular}\end{center}" + "\n")
@@ -118,53 +175,20 @@ with open(f"{out}-checks.tex", "w") as f:
         f.write(" & ".join([name, *cells]) + r" \\" + "\n")
     f.write(r"\bottomrule\end{tabular}\end{center}" + "\n")
 
-lo, hi = ok.check.min() / 1.2, ok.check.max() * 1.2
+cdf_ok = ok.assign(combined=ok.gen + ok.check)
+cdf_labels = {c: label.replace(r"\fontsize{6}{7}", r"\fontsize{10}{12}")
+              for c, label in table_labels.items()}
+lo, hi = cdf_ok.combined.min() / 1.2, cdf_ok.combined.max() * 1.2
 fig, ax = plt.subplots(figsize=(9, 6))
 for i, c in enumerate(cfgs):
-    times = ok.loc[ok.dir == c, "check"].sort_values()
+    times = cdf_ok.loc[cdf_ok.dir == c, "combined"].sort_values()
     ax.step([lo, *times], range(len(times) + 1), where="post", linewidth=1.8,
             marker="o", markersize=2.5, alpha=0.8, markevery=range(1, len(times) + 1),
-            zorder=2 + len(cfgs) - i, label=f"{len(times)} {labels[c]}")
+            zorder=2 + len(cfgs) - i, label=f"{len(times)} {cdf_labels[c]}")
 ax.set(xscale="log", xlim=(lo, hi), ylim=(0, n * 1.02),
-       xlabel="Time (s)", ylabel="Checked Certificates")
+       xlabel="generation + checking (s)", ylabel="validated certificates")
 ax.grid(alpha=0.25)
 ax.legend(loc="lower right")
 fig.tight_layout()
 fig.savefig(f"{out}-cdf.pdf")
 plt.close(fig)
-
-status = d.pivot(index="name", columns="dir", values="status")
-plt.rcParams.update({"font.size": 16, "axes.labelsize": 16, "xtick.labelsize": 15,
-                     "ytick.labelsize": 15, "legend.fontsize": 16})
-for metric, title in [("gen", "Generation"), ("check", "Checking")]:
-    times = d.pivot(index="name", columns="dir", values=metric)[["certifaiger", "caketaiger"]]
-    if metric == "check":
-        times = times.where(status == "ok")
-    x, y = times.certifaiger, times.caketaiger
-    lo, hi = times.min().min() / 1.2, times.max().max() * 1.2
-    ratio = (y / x).median()
-    print(f"{title}: median Caketaiger/certifaiger-default ratio: {ratio:.2f}")
-    start, end = max(lo, lo / ratio), min(hi, hi / ratio)
-    fig, ax = plt.subplots(figsize=(6, 6))
-    ax.plot([lo, hi], [lo, hi], "--", color="gray", label="Equal time")
-    ax.scatter(x, y, s=48, alpha=0.7)
-    ax.plot([start, end], [ratio * start, ratio * end], color="tab:orange",
-            label=f"median ({ratio:.2f})")
-    if metric == "check":
-        top = x[status.caketaiger == "timeout"].dropna()
-        right = y[status.certifaiger == "timeout"].dropna()
-        ax.scatter(top, [1.025] * len(top), transform=ax.get_xaxis_transform(),
-                   clip_on=False, marker="x", color="tab:red", s=64,
-                   label=rf"\caketaiger timeout ({len(top)})")
-        ax.scatter([1.025] * len(right), right, transform=ax.get_yaxis_transform(),
-                   clip_on=False, marker="x", color="tab:green", s=64,
-                   label=rf"\certifaiger timeout ({len(right)})")
-    ax.set(xscale="log", yscale="log", xlim=(lo, hi), ylim=(lo, hi),
-           xlabel=rf"\certifaiger {title.lower()} (s)", ylabel=rf"\caketaiger {title.lower()} (s)")
-    ax.set_aspect("equal", adjustable="box")
-    ax.grid(alpha=0.25)
-    fig.legend(loc="upper center", bbox_to_anchor=(0.5, 0.17), ncol=2, frameon=False,
-               handlelength=1.2, handletextpad=0.4, columnspacing=0.8)
-    fig.tight_layout(rect=(0, 0.16, 1, 1))
-    fig.savefig(f"{out}-scatter-certifaiger-caketaiger-{metric}.pdf", bbox_inches="tight", pad_inches=0.3)
-    plt.close(fig)
