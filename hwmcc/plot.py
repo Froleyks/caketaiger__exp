@@ -2,6 +2,7 @@
 """HWMCC summary, combined runtime CDF and Certifaiger/Caketaiger comparisons."""
 from pathlib import Path
 from math import exp, log
+from os import environ
 from sys import argv
 import matplotlib
 matplotlib.use("Agg")
@@ -26,15 +27,15 @@ labels = {
     "caketaiger": r"\caketaiger",
 }
 
-src, out, timeout = argv[1:]
-timeout = float(timeout)
+src, out = argv[1:]
+timeout = float(environ.get("TIME", 36000))
 d = pd.read_csv(src)
 d = d[~d.name.isin(Path(__file__).with_name("invalid").read_text().split())].copy()
-d.loc[d.status == "incomplete", "status"] = "timeout"
 d["gen"] = d[["generation", "split", *d.filter(regex="^cnf_")]].sum(axis=1)
 d["check"] = d.filter(regex="^check_").sum(axis=1)
+d["combined"] = d.gen + d.check
+d.loc[d.combined > timeout, "status"] = "timeout"
 d["ratio"] = d.filter(regex="^clauses_").sum(axis=1) / d.witness_M
-# Scatter plots use the original statuses and all retained rows.
 status = d.pivot(index="name", columns="dir", values="status")
 plt.rcParams.update({"font.size": 16, "axes.labelsize": 16, "xtick.labelsize": 15,
                      "ytick.labelsize": 15, "legend.fontsize": 16})
@@ -44,14 +45,9 @@ for metric, title in [("gen", "Generation"), ("check", "Checking")]:
         times = times.where(status == "ok")
     x, y = times.certifaiger, times.caketaiger
     lo, hi = times.min().min() / 1.2, times.max().max() * 1.2
-    ratio = exp((y / x).dropna().map(log).mean())
-    print(f"{title}: geometric mean Caketaiger/certifaiger-default ratio: {ratio:.2f}")
-    start, end = max(lo, lo / ratio), min(hi, hi / ratio)
     fig, ax = plt.subplots(figsize=(6, 6))
-    ax.plot([lo, hi], [lo, hi], "--", color="gray", label="Equal time")
+    ax.plot([lo, hi], [lo, hi], "--", color="gray")
     ax.scatter(x, y, s=48, alpha=0.7)
-    ax.plot([start, end], [ratio * start, ratio * end], color="tab:orange",
-            label=f"geo. mean ({ratio:.2f})")
     if metric == "check":
         top = x[status.caketaiger == "timeout"].dropna()
         right = y[status.certifaiger == "timeout"].dropna()
@@ -71,10 +67,13 @@ for metric, title in [("gen", "Generation"), ("check", "Checking")]:
            xlabel=rf"\certifaiger {title.lower()} (s)", ylabel=rf"\caketaiger {title.lower()} (s)")
     ax.set_aspect("equal", adjustable="box")
     ax.grid(alpha=0.25)
-    fig.legend(loc="upper center", bbox_to_anchor=(0.5, 0.17), ncol=2, frameon=False,
-               handlelength=1.2, handletextpad=0.4, columnspacing=0.8)
     # Keep identical axes and page bounds despite the different legend heights.
     fig.subplots_adjust(left=0.19, bottom=0.30, right=0.91, top=0.96)
+    if metric == "check":
+        # Center the left-aligned timeout entries beneath the square axes.
+        ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.20),
+                  alignment="left", frameon=False,
+                  handlelength=1.2, handletextpad=0.4)
     fig.savefig(f"{out}-scatter-certifaiger-caketaiger-{metric}.pdf")
     plt.close(fig)
 
@@ -89,44 +88,47 @@ n = d.name.nunique()
 pair = ["caketaiger", "certifaiger"]
 solved = ok[ok.dir.isin(pair)].groupby("name").size()
 common = d[d.dir.isin(pair) & d.name.isin(solved[solved == 2].index)]
-totals = common.groupby("dir")[["gen", "check"]].sum()
-totals["total"] = totals.gen + totals.check
+totals = common.groupby("dir")[["gen", "check", "combined"]].sum()
 print(f"HWMCC: {n} retained benchmarks; {common.name.nunique()} solved by both (times in s)")
 for cfg, label in zip(pair, ["Caketaiger", "certifaiger-default"]):
     r = d[d.dir == cfg]
     print(f"{label}: generation (all {len(r)}, total/mean/median): "
           f"{r.gen.sum():.2f}/{r.gen.mean():.2f}/{r.gen.median():.2f}")
-    r = common[common.dir == cfg].copy()
-    r["total"] = r.gen + r.check
+    r = common[common.dir == cfg]
     for statistic, heading in [("sum", "total"), ("mean", "mean"), ("median", "median")]:
-        t = r[["gen", "check", "total"]].agg(statistic)
+        t = r[["gen", "check", "combined"]].agg(statistic)
         print(f"  generation/checking/combined (intersection, {heading}): "
-              f"{t.gen:.2f}/{t.check:.2f}/{t.total:.2f}")
-pct = 100 * (totals.loc["caketaiger", "total"] / totals.loc["certifaiger", "total"] - 1)
-print(f"Caketaiger is {abs(pct):.2f}% {'slower' if pct >= 0 else 'faster'} than certifaiger-default (combined, intersection)")
+              f"{t.gen:.2f}/{t.check:.2f}/{t.combined:.2f}")
 # Use paired combined runtimes, rather than ratios of unpaired medians.
-combined = common.assign(total=common.gen + common.check).pivot(
-    index="name", columns="dir", values="total")
+combined = common.pivot(index="name", columns="dir", values="combined")
 relative = combined.caketaiger / combined.certifaiger
-median_ratio = relative.median()
-geomean_ratio = exp(relative.map(log).mean())
-print(f"Combined runtime reduction (intersection, per-certificate median / geometric mean): "
-      f"{100 * (1 - median_ratio):.2f}% / {100 * (1 - geomean_ratio):.2f}%")
-
-# Tables and CDF classify any SAT call above 3602 seconds as a timeout.
-solved_10h = ok.groupby("dir").name.nunique()
-d.loc[(d.filter(regex="^solve_") > 3602).any(axis=1), "status"] = "timeout"
-ok = d[d.status == "ok"]
-solved_1h = ok.groupby("dir").name.nunique()
-print("HWMCC solved benchmarks (10-hour / 1-hour SAT-call time limit):")
-for cfg in pair:
-    print(f"  {cfg}: {solved_10h.get(cfg, 0)} / {solved_1h.get(cfg, 0)}")
+speedups = 1 / relative
+speedup_metrics = {
+    "Total": totals.loc["certifaiger", "combined"] / totals.loc["caketaiger", "combined"],
+    "Per-certificate median": speedups.median(),
+    "Per-certificate geometric mean": exp(speedups.map(log).mean()),
+}
+reduction_metrics = {
+    "Total": 1 - totals.loc["caketaiger", "combined"] / totals.loc["certifaiger", "combined"],
+    "Per-certificate median": 1 - relative.median(),
+    "Per-certificate geometric mean": 1 - exp(relative.map(log).mean()),
+}
+print("\nCombined runtime speedup (certifaiger-default / Caketaiger, commonly solved):")
+for metric, value in speedup_metrics.items():
+    print(f"  {metric}: {value:.4f}x ({100 * (value - 1):.2f}% faster)")
+print("\nCombined runtime reduction (relative to certifaiger-default, commonly solved):")
+for metric, value in reduction_metrics.items():
+    print(f"  {metric}: {100 * value:.2f}%")
+validated = ok[ok.dir.isin(pair)].groupby("dir").size()
+print(f"\nValidated in total: Caketaiger {validated['caketaiger']}, "
+      f"certifaiger-default {validated['certifaiger']} "
+      f"({validated['caketaiger'] - validated['certifaiger']:+d} for Caketaiger)")
 
 # Mean clause/gate ratio, mean generation time, and checking PAR-2.
 t = d.groupby("dir").agg(ratio=("ratio", "mean"), gen=("gen", "mean")).loc[cfgs]
 t["timeout"] = (d.status == "timeout").groupby(d.dir).sum()
 t["par2"] = d.check.where(d.status == "ok", 2 * timeout).groupby(d.dir).mean()
-solved_all = d[(d.status == "ok") & d.dir.isin(cfgs)]
+solved_all = ok[ok.dir.isin(cfgs)]
 solved_counts = solved_all.groupby("name").dir.nunique()
 common_names = solved_counts[solved_counts == len(cfgs)].index
 print(f"HWMCC: {len(common_names)} benchmarks solved by all {len(cfgs)} configurations (Mean intersection)")
@@ -142,7 +144,7 @@ with open(f"{out}.tex", "w") as f:
     f.write(r"\begin{center}\begin{tabular}{@{}l@{}rr@{}p{4pt}@{}rrr@{}}\toprule" + "\n")
     f.write(r" & \multicolumn{2}{@{}c}{Generation} & & \multicolumn{3}{c@{}}{Checking} \\" + "\n")
     f.write(r"\cmidrule(lr){2-3}\cmidrule(lr){5-7}" + "\n")
-    heads = ["Clause/gate", "Mean (s)", r"{\small\texttt{\textgreater{}1h}}", r"Mean$_{\cap}$(s)",
+    heads = ["Clause/gate", "Mean (s)", "Timeouts", r"Mean$_{\cap}$(s)",
              "PAR-2 (s)"]
     heads = [r"\multicolumn{1}{c}{" + h + "}" for h in heads]
     heads[0] = heads[0].replace("{c}", "{@{}c}", 1)
@@ -195,13 +197,12 @@ with open(f"{out}-checks.tex", "w") as f:
         f.write(" & ".join([name, *cells]) + r" \\" + "\n")
     f.write(r"\bottomrule\end{tabular}\end{center}" + "\n")
 
-cdf_ok = ok.assign(combined=ok.gen + ok.check)
 cdf_labels = {c: label.replace(r"\fontsize{6}{7}", r"\fontsize{10}{12}")
               for c, label in table_labels.items()}
-lo, hi = cdf_ok.combined.min() / 1.2, cdf_ok.combined.max() * 1.2
+lo, hi = ok.combined.min() / 1.2, ok.combined.max() * 1.2
 fig, ax = plt.subplots(figsize=(9, 6))
 for i, c in enumerate(cfgs):
-    times = cdf_ok.loc[cdf_ok.dir == c, "combined"].sort_values()
+    times = ok.loc[ok.dir == c, "combined"].sort_values()
     ax.step([lo, *times], range(len(times) + 1), where="post", linewidth=1.8,
             marker="o", markersize=2.5, alpha=0.8, markevery=range(1, len(times) + 1),
             zorder=2 + len(cfgs) - i, label=f"{len(times)} {cdf_labels[c]}")

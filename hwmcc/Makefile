@@ -1,5 +1,6 @@
 SHELL := bash
 .IGNORE:
+TIME ?= 36000
 -include ../config.mk
 
 CONFIGS := certifaiger certifaiger-plain certifaiger-coi certifaiger-coi+xor certifaiger-coi+xor+ite caketaiger
@@ -12,7 +13,7 @@ PARSING := @ time: @ status: @ memory: @ t_generation: generation @ t_split: spl
 BENCHMARKS := $(foreach goal,all sub smoketest,$(addsuffix -$(goal),$(addprefix benchmarks-,$(CONFIGS))))
 
 all sub smoketest: %: data-%
-	./plot.py $< $(notdir $(CURDIR))-$@ $(TIME)
+	./plot.py $< $(notdir $(CURDIR))-$@
 
 data-%: LOG = $(addsuffix -$*,$(addprefix log-,$(CONFIGS)))
 .SECONDEXPANSION:
