@@ -2,7 +2,7 @@
 # CPUS is cores per task; MEM_PER_CPU is MB per allocated core.
 # SLACK is the Slurm wall-time percentage of TIME.
 NAME ?= caketaiger
-TIME ?= 3600
+TIME ?= 36000
 MEM_PER_CPU ?= 4000
 CPUS ?= 32
 SLACK ?= 205
