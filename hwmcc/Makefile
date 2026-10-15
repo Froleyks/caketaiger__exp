@@ -1,6 +1,6 @@
 SHELL := bash
 .IGNORE:
-TIME ?= 36000
+export TIME ?= 36000
 -include ../config.mk
 
 CONFIGS := certifaiger certifaiger-plain certifaiger-coi certifaiger-coi+xor certifaiger-coi+xor+ite caketaiger
