@@ -56,10 +56,16 @@ for metric, title in [("gen", "Generation"), ("check", "Checking")]:
         right = y[status.certifaiger == "timeout"].dropna()
         ax.scatter(top, [1.025] * len(top), transform=ax.get_xaxis_transform(),
                    clip_on=False, marker="x", color="tab:red", s=64,
-                   label=rf"\caketaiger timeout ({len(top)})")
+                   label=rf"\caketaiger timeout ({(status.caketaiger == 'timeout').sum()})")
         ax.scatter([1.025] * len(right), right, transform=ax.get_yaxis_transform(),
-                   clip_on=False, marker="x", color="tab:green", s=64,
-                   label=rf"\certifaiger timeout ({len(right)})")
+                   clip_on=False, marker="+", color="tab:green", s=64,
+                   label=rf"\certifaiger timeout ({(status.certifaiger == 'timeout').sum()})")
+        both = ((status.caketaiger == "timeout") &
+                (status.certifaiger == "timeout")).sum()
+        if both:
+            for marker, color in [("x", "tab:red"), ("+", "tab:green")]:
+                ax.scatter([1.025], [1.025], transform=ax.transAxes,
+                           clip_on=False, marker=marker, color=color, s=64)
     ax.set(xscale="log", yscale="log", xlim=(lo, hi), ylim=(lo, hi),
            xlabel=rf"\certifaiger {title.lower()} (s)", ylabel=rf"\caketaiger {title.lower()} (s)")
     ax.set_aspect("equal", adjustable="box")
@@ -102,19 +108,19 @@ print(f"Caketaiger is {abs(pct):.2f}% {'slower' if pct >= 0 else 'faster'} than 
 d.loc[(d.filter(regex="^solve_") > 3602).any(axis=1), "status"] = "timeout"
 ok = d[d.status == "ok"]
 
-# Mean generation measurements and checking PAR-2.
-t = d.groupby("dir")[["ratio", "gen"]].mean().loc[cfgs]
+# Mean clause/gate ratio, mean generation time, and checking PAR-2.
+t = d.groupby("dir").agg(ratio=("ratio", "mean"), gen=("gen", "mean")).loc[cfgs]
 t["timeout"] = (d.status == "timeout").groupby(d.dir).sum()
 t["par2"] = d.check.where(d.status == "ok", 2 * timeout).groupby(d.dir).mean()
 solved_all = d[(d.status == "ok") & d.dir.isin(cfgs)]
 solved_counts = solved_all.groupby("name").dir.nunique()
 common_names = solved_counts[solved_counts == len(cfgs)].index
+print(f"HWMCC: {len(common_names)} benchmarks solved by all {len(cfgs)} configurations (Mean intersection)")
 t["mean"] = solved_all[solved_all.name.isin(common_names)].groupby("dir").check.mean()
 t = t[["ratio", "gen", "timeout", "mean", "par2"]]
 table_labels = {c: label.replace(" ", r"\ {\fontsize{6}{7}\selectfont ", 1) + "}"
                 if " " in label else label for c, label in labels.items()}
-rows = [[table_labels[c], *(f"{v:.2f}" if i in (1, 3, 4) else
-                       f"{v:.2f}".rstrip("0").rstrip(".")
+rows = [[table_labels[c], *(f"{v:.0f}" if i == 2 else f"{v:.2f}"
                        for i, v in enumerate(row))]
         for c, row in t.iterrows()]
 widths = [max(col, key=len) for col in zip(*(row[1:] for row in rows))]
@@ -122,7 +128,7 @@ with open(f"{out}.tex", "w") as f:
     f.write(r"\begin{center}\begin{tabular}{@{}l@{}rr@{}p{4pt}@{}rrr@{}}\toprule" + "\n")
     f.write(r" & \multicolumn{2}{@{}c}{Generation} & & \multicolumn{3}{c@{}}{Checking} \\" + "\n")
     f.write(r"\cmidrule(lr){2-3}\cmidrule(lr){5-7}" + "\n")
-    heads = ["Clause/gate", "Time (s)", r"{\small\texttt{\textgreater{}1h}}", r"Mean$_{\cap}$(s)",
+    heads = ["Clause/gate", "Mean (s)", r"{\small\texttt{\textgreater{}1h}}", r"Mean$_{\cap}$(s)",
              "PAR-2 (s)"]
     heads = [r"\multicolumn{1}{c}{" + h + "}" for h in heads]
     heads[0] = heads[0].replace("{c}", "{@{}c}", 1)
