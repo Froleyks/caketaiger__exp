@@ -105,8 +105,13 @@ pct = 100 * (totals.loc["caketaiger", "total"] / totals.loc["certifaiger", "tota
 print(f"Caketaiger is {abs(pct):.2f}% {'slower' if pct >= 0 else 'faster'} than certifaiger-default (combined, intersection)")
 
 # Tables and CDF classify any SAT call above 3602 seconds as a timeout.
+solved_10h = ok.groupby("dir").name.nunique()
 d.loc[(d.filter(regex="^solve_") > 3602).any(axis=1), "status"] = "timeout"
 ok = d[d.status == "ok"]
+solved_1h = ok.groupby("dir").name.nunique()
+print("HWMCC solved benchmarks (10-hour / 1-hour SAT-call time limit):")
+for cfg in pair:
+    print(f"  {cfg}: {solved_10h.get(cfg, 0)} / {solved_1h.get(cfg, 0)}")
 
 # Mean clause/gate ratio, mean generation time, and checking PAR-2.
 t = d.groupby("dir").agg(ratio=("ratio", "mean"), gen=("gen", "mean")).loc[cfgs]
