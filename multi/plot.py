@@ -31,16 +31,16 @@ for _, row in d.sort_values(["max_check", "witness", "engine_order"],
         q = [int(f.readline()) + F for _ in range(J)]
     engine, name = row['name'].split('-', 1)
     engine = {"k": "k-liveness", "l2s": "L2S", "rlive": "rLive", "stable": "stabilizer"}[engine]
-    rows.append([name, M, I, L, C, O + B,
+    rows.append([name, M, I, L, C,
                  *[q[i] if i < J else "-" for i in range(2)], engine,
                  row["Generation (s)"], row["Checking (s)"]])
 
-heads = ["Model", "M", "I", "L", "C", "P (O+B)", "Q1", "Q2", "Engine",
+heads = ["Model", "M", "I", "L", "C", "Q1", "Q2", "Engine",
          "Generate (s)", "Check (s)"]
 previous = None
 for row in rows:
     if row[0] == previous:
-        row[:8] = [""] * 8
+        row[:7] = [""] * 7
     else:
         previous = row[0]
 table = pd.DataFrame(rows, columns=heads)
@@ -51,8 +51,8 @@ time_widths = [max((f"{row[i]:.2f}" for row in rows), key=len, default="0.00") f
 with open(f"{out}-checks.tex", "w") as f:
     f.write(r"\begin{table}[htbp]\centering" + "\n")
     f.write(r"\caption{Multi-signal liveness model sizes and \caketaiger witness runtimes, grouped by model and ordered by the highest checking time per model.}\label{tab:multi-checks}" + "\n")
-    f.write(r"\begin{tabular*}{\linewidth}{@{}@{\extracolsep{\fill}}lrrrrrrr@{\extracolsep{0pt}\hspace{6pt}}|@{\hspace{6pt}}l@{\extracolsep{\fill}\hspace{4pt}}rr@{}}" + "\n")
-    tex_heads = ["Model", "M", "I", "L", "C", "P", r"Q\textsubscript{1}", r"Q\textsubscript{2}", "Engine",
+    f.write(r"\begin{tabular*}{\linewidth}{@{}@{\extracolsep{\fill}}lrrrrrr@{\extracolsep{0pt}\hspace{6pt}}|@{\hspace{6pt}}l@{\extracolsep{\fill}\hspace{4pt}}rr@{}}" + "\n")
+    tex_heads = ["Model", "M", "I", "L", "C", r"Q\textsubscript{1}", r"Q\textsubscript{2}", "Engine",
                  "Generate (s)", "Check (s)"]
     tex_heads[-2:] = [r"\multicolumn{1}{c}{" + h + "}" for h in tex_heads[-2:]]
     heading = r"\toprule" + "\n" + " & ".join(tex_heads) + r" \\ \midrule" + "\n"

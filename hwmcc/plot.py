@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """HWMCC summary, combined runtime CDF and Certifaiger/Caketaiger comparisons."""
 from pathlib import Path
+from math import exp, log
 from sys import argv
 import matplotlib
 matplotlib.use("Agg")
@@ -43,14 +44,14 @@ for metric, title in [("gen", "Generation"), ("check", "Checking")]:
         times = times.where(status == "ok")
     x, y = times.certifaiger, times.caketaiger
     lo, hi = times.min().min() / 1.2, times.max().max() * 1.2
-    ratio = (y / x).median()
-    print(f"{title}: median Caketaiger/certifaiger-default ratio: {ratio:.2f}")
+    ratio = exp((y / x).dropna().map(log).mean())
+    print(f"{title}: geometric mean Caketaiger/certifaiger-default ratio: {ratio:.2f}")
     start, end = max(lo, lo / ratio), min(hi, hi / ratio)
     fig, ax = plt.subplots(figsize=(6, 6))
     ax.plot([lo, hi], [lo, hi], "--", color="gray", label="Equal time")
     ax.scatter(x, y, s=48, alpha=0.7)
     ax.plot([start, end], [ratio * start, ratio * end], color="tab:orange",
-            label=f"median ({ratio:.2f})")
+            label=f"geo. mean ({ratio:.2f})")
     if metric == "check":
         top = x[status.caketaiger == "timeout"].dropna()
         right = y[status.certifaiger == "timeout"].dropna()
@@ -103,6 +104,14 @@ for cfg, label in zip(pair, ["Caketaiger", "certifaiger-default"]):
               f"{t.gen:.2f}/{t.check:.2f}/{t.total:.2f}")
 pct = 100 * (totals.loc["caketaiger", "total"] / totals.loc["certifaiger", "total"] - 1)
 print(f"Caketaiger is {abs(pct):.2f}% {'slower' if pct >= 0 else 'faster'} than certifaiger-default (combined, intersection)")
+# Use paired combined runtimes, rather than ratios of unpaired medians.
+combined = common.assign(total=common.gen + common.check).pivot(
+    index="name", columns="dir", values="total")
+relative = combined.caketaiger / combined.certifaiger
+median_ratio = relative.median()
+geomean_ratio = exp(relative.map(log).mean())
+print(f"Combined runtime reduction (intersection, per-certificate median / geometric mean): "
+      f"{100 * (1 - median_ratio):.2f}% / {100 * (1 - geomean_ratio):.2f}%")
 
 # Tables and CDF classify any SAT call above 3602 seconds as a timeout.
 solved_10h = ok.groupby("dir").name.nunique()
