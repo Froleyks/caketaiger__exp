@@ -26,12 +26,12 @@ memouts = t.eq("memout").any(axis=1).sum()
 widths = [max(col, key=len) for col in zip(*(row[1:] for row in rows))]
 
 with open(f"{out}.tex", "w") as f:
-    f.write(r"\noindent\begin{minipage}{\linewidth}\begin{center}" + "\n")
+    f.write(r"\begin{center}" + "\n")
     f.write(r"\setlength{\tabcolsep}{4pt}" + "\n")
     f.write(r"\begin{tabular}{lrrrrrr}\toprule" + "\n")
     f.write(r" & \multicolumn{3}{c}{Model} & Witness & \multicolumn{2}{c}{Total time (s)} \\" + "\n")
     f.write(r"\cmidrule(lr){2-4}\cmidrule(lr){5-5}\cmidrule(lr){6-7}" + "\n")
-    heads = ["M", "I", "L", "shoals", r"\caketaiger", r"\textsc{pvs}"]
+    heads = ["M", "I", "L", "shoals", r"\caketaiger", "PVS"]
     f.write(" & " + " & ".join(r"\multicolumn{1}{c}{" + h + "}" for h in heads)
             + r" \\ \midrule[\heavyrulewidth]" + "\n")
     for i, (name, *cells) in enumerate(rows):
@@ -44,4 +44,3 @@ with open(f"{out}.tex", "w") as f:
         f.write(" & ".join([name, *cells]) + r" \\" + (r" \midrule[\heavyrulewidth]" if i == memouts - 1
                                      else r" \midrule" if i == len(rows) - 2 else "") + "\n")
     f.write(r"\bottomrule\end{tabular}\end{center}" + "\n")
-    f.write(r"\end{minipage}\par\vspace{1cm}" + "\n")
