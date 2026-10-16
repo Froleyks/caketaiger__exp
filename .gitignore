@@ -29,7 +29,6 @@
 /hwmcc/model/
 /hwmcc/witness/
 /hwmcc/*.tar.gz
-/hwmcc/*.part
 **/__pycache__/
 **/data-sub
 **/data-smoketest

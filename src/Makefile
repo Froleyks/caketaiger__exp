@@ -48,7 +48,7 @@ caketaiger-artifacts.tar.xz:
 
 $(bin)/caketaiger $(bin)/cake_lrup &: caketaiger-artifacts.tar.xz
 	tar -xf caketaiger-artifacts.tar.xz
-	$(MAKE) -C caketaiger-artifacts LDLIBS="$(LDLIBS) -static"
+	$(MAKE) -C caketaiger-artifacts $$(case $$(uname -m) in aarch64|arm64) echo arm;; *) echo x86;; esac) LDLIBS="$(LDLIBS) -static"
 	cp caketaiger-artifacts/{caketaiger,cake_lrup} $(bin)/
 
 $(bin)/tectonic:
