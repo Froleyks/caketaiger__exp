@@ -33,6 +33,8 @@ RUN uv pip install pandas matplotlib
 
 # run
 COPY . .
-RUN rm -rf .git && make smoketest && make clean && make our-data
+# Plotting all from our data caches the fonts tectonic needs offline.
+RUN rm -rf .git && make smoketest && make clean && make our-data \
+	&& make all && make clean && make our-data
 
 CMD ["bash"]
