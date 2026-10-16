@@ -30,7 +30,7 @@ for _, row in d.sort_values(["max_check", "witness", "engine_order"],
             f.readline()
         q = [int(f.readline()) + F for _ in range(J)]
     engine, name = row['name'].split('-', 1)
-    engine = {"k": "k-liveness", "l2s": "L2S", "rlive": "rLive", "stable": "stabilizer"}[engine]
+    engine = {"k": "k-liveness", "l2s": "L2S", "rlive": "rlive", "stable": "stabilizer"}[engine]
     rows.append([name, M, I, L, C,
                  *[q[i] if i < J else "-" for i in range(2)], engine,
                  row["Generation (s)"], row["Checking (s)"]])
