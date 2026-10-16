@@ -26,6 +26,24 @@ labels = {
     "certifaiger-coi+xor+ite": r"\certifaiger COI+XOR+ITE",
     "caketaiger": r"\caketaiger",
 }
+# Colorblind-safe: Caketaiger in vermillion, Certifaiger configurations as a
+# light-to-dark blue ramp by number of optimizations (also readable in grayscale).
+colors = {
+    "caketaiger": "#D55E00",
+    "certifaiger": "#08306b",
+    "certifaiger-coi+xor+ite": "#08519c",
+    "certifaiger-coi+xor": "#2171b5",
+    "certifaiger-coi": "#4292c6",
+    "certifaiger-plain": "#6baed6",
+}
+markers = {
+    "caketaiger": "o",
+    "certifaiger": "s",
+    "certifaiger-coi+xor+ite": "^",
+    "certifaiger-coi+xor": "D",
+    "certifaiger-coi": "v",
+    "certifaiger-plain": "X",
+}
 
 src, out = argv[1:]
 timeout = float(environ.get("TIME", 36000))
@@ -52,15 +70,15 @@ for metric, title in [("gen", "Generation"), ("check", "Checking")]:
         top = x[status.caketaiger == "timeout"].dropna()
         right = y[status.certifaiger == "timeout"].dropna()
         ax.scatter(top, [1.025] * len(top), transform=ax.get_xaxis_transform(),
-                   clip_on=False, marker="x", color="tab:red", s=64,
+                   clip_on=False, marker="x", color=colors["caketaiger"], s=64,
                    label=rf"\caketaiger timeout ({(status.caketaiger == 'timeout').sum()})")
         ax.scatter([1.025] * len(right), right, transform=ax.get_yaxis_transform(),
-                   clip_on=False, marker="+", color="tab:green", s=64,
+                   clip_on=False, marker="+", color=colors["certifaiger"], s=64,
                    label=rf"\certifaiger timeout ({(status.certifaiger == 'timeout').sum()})")
         both = ((status.caketaiger == "timeout") &
                 (status.certifaiger == "timeout")).sum()
         if both:
-            for marker, color in [("x", "tab:red"), ("+", "tab:green")]:
+            for marker, color in [("x", colors["caketaiger"]), ("+", colors["certifaiger"])]:
                 ax.scatter([1.025], [1.025], transform=ax.transAxes,
                            clip_on=False, marker=marker, color=color, s=64)
     ax.set(xscale="log", yscale="log", xlim=(lo, hi), ylim=(lo, hi),
@@ -203,8 +221,11 @@ lo, hi = ok.combined.min() / 1.2, ok.combined.max() * 1.2
 fig, ax = plt.subplots(figsize=(9, 6))
 for i, c in enumerate(cfgs):
     times = ok.loc[ok.dir == c, "combined"].sort_values()
-    ax.step([lo, *times], range(len(times) + 1), where="post", linewidth=1.8,
-            marker="o", markersize=2.5, alpha=0.8, markevery=range(1, len(times) + 1),
+    # Markers at even on-screen spacing give a second, non-color cue per series.
+    ax.step([lo, *times], range(len(times) + 1), where="post",
+            linewidth=2.6 if c == "caketaiger" else 1.8, color=colors[c],
+            marker=markers[c], markersize=7, markevery=(0.02 + 0.012 * i, 0.09),
+            markeredgecolor="white", markeredgewidth=0.8,
             zorder=2 + len(cfgs) - i, label=f"{len(times)} {cdf_labels[c]}")
 ax.set(xscale="log", xlim=(lo, hi), ylim=(0, n * 1.02),
        xlabel="generation + checking (s)", ylabel="validated certificates")
