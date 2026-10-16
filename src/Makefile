@@ -57,16 +57,30 @@ $(bin)/tectonic:
 	install -m755 tectonic $@
 
 $(bin)/proveit $(bin)/pvs-sbclisp $(bin)/pvs-theories &: pvs.tar.xz
-	tar -xJf $< nuxmv/PVS \
+	tar --no-same-owner -xJf $< nuxmv/PVS \
 		nuxmv/Certifying_Rlive_25/PVS_theories/rlive_theories_andproofs_certificates
 	mkdir -p $(bin)/pvs-theories
 	cp nuxmv/Certifying_Rlive_25/PVS_theories/rlive_theories_andproofs_certificates/{*.pvs,*.prf,pvs-strategies} $(bin)/pvs-theories/
 	cd nuxmv/PVS
 	sed -i 's/(character i)/(code-char i)/' src/pp-tex.lisp
+	# uname -p is "unknown" on Debian; aarch64 builds into bin/aarch64-Linux.
+	sed -i '/Linux|FreeBSD)/,/esac/s/uname -p/uname -m/' pvs.in
 	unset SBCL_HOME
+	# PVS derives its version string from git, which fails outside a repository.
+	git init -q
+	git -c user.name=pvs -c user.email=pvs@localhost commit -q --allow-empty -m pvs
+	# Yices 1 is only distributed for x86_64; elsewhere run it under qemu-user.
+	platform=$$(bin/pvs-platform)
+	yices=$$(echo yices/ix86_64-Linux/yices-1.*/bin/yices)
+	if [ "$$platform" != ix86_64-Linux ]; then
+		target=$${yices/ix86_64-Linux/$$platform}
+		mkdir -p "$$(dirname "$$target")"
+		printf '#!/bin/sh\nexec qemu-x86_64 %s "$$@"\n' "$$PWD/$$yices" > "$$target"
+		chmod +x "$$target"
+	fi
 	./configure
 	$(MAKE) -j1
-	$(MAKE) -j1
+	test -x bin/$$(bin/pvs-platform)/runtime/pvs-sbclisp
 	ln -sf ../src/nuxmv/PVS/proveit $(bin)/proveit
 	ln -sf ../src/nuxmv/PVS/bin/$$(bin/pvs-platform)/runtime/pvs-sbclisp $(bin)/pvs-sbclisp
 

@@ -20,6 +20,8 @@ RUN apt-get update \
 	libgraphite2-dev \
 	sbcl \
 	xz-utils \
+	&& if [ "$(uname -m)" != x86_64 ]; then \
+		apt-get install -y --no-install-recommends qemu-user; fi \
 	&& rm -rf /var/lib/apt/lists/*
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/

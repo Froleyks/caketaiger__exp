@@ -3,16 +3,19 @@
 from pathlib import Path
 from math import exp, log
 from os import environ
+from shutil import which
 from sys import argv
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 
+# Use LaTeX for the paper; fall back to plain labels where it is not installed.
+TEX = which("latex") is not None
 plt.rcParams.update({"font.size": 15, "axes.labelsize": 16, "axes.titlesize": 15,
                      "xtick.labelsize": 15, "ytick.labelsize": 15,
                      "legend.fontsize": 15, "legend.title_fontsize": 15,
-                     "text.usetex": True,
+                     "text.usetex": TEX,
                      "text.latex.preamble": r"\usepackage{xspace}"
                      r"\providecommand{\toolnameformat}[1]{\textsc{#1}\xspace}"
                      r"\providecommand{\caketaiger}{\toolnameformat{Caketaiger}}"
@@ -26,6 +29,14 @@ labels = {
     "certifaiger-coi+xor+ite": r"\certifaiger COI+XOR+ITE",
     "caketaiger": r"\caketaiger",
 }
+
+
+def plot_text(text):
+    if TEX:
+        return text
+    return text.replace(r"\caketaiger", "Caketaiger").replace(r"\certifaiger", "Certifaiger")
+
+
 # Colorblind-safe: Caketaiger in vermillion, Certifaiger configurations as a
 # light-to-dark blue ramp by number of optimizations (also readable in grayscale).
 colors = {
@@ -71,10 +82,10 @@ for metric, title in [("gen", "Generation"), ("check", "Checking")]:
         right = y[status.certifaiger == "timeout"].dropna()
         ax.scatter(top, [1.025] * len(top), transform=ax.get_xaxis_transform(),
                    clip_on=False, marker="x", color=colors["caketaiger"], s=64,
-                   label=rf"\caketaiger timeout ({(status.caketaiger == 'timeout').sum()})")
+                   label=plot_text(rf"\caketaiger timeout ({(status.caketaiger == 'timeout').sum()})"))
         ax.scatter([1.025] * len(right), right, transform=ax.get_yaxis_transform(),
                    clip_on=False, marker="+", color=colors["certifaiger"], s=64,
-                   label=rf"\certifaiger timeout ({(status.certifaiger == 'timeout').sum()})")
+                   label=plot_text(rf"\certifaiger timeout ({(status.certifaiger == 'timeout').sum()})"))
         both = ((status.caketaiger == "timeout") &
                 (status.certifaiger == "timeout")).sum()
         if both:
@@ -82,7 +93,8 @@ for metric, title in [("gen", "Generation"), ("check", "Checking")]:
                 ax.scatter([1.025], [1.025], transform=ax.transAxes,
                            clip_on=False, marker=marker, color=color, s=64)
     ax.set(xscale="log", yscale="log", xlim=(lo, hi), ylim=(lo, hi),
-           xlabel=rf"\certifaiger {title.lower()} (s)", ylabel=rf"\caketaiger {title.lower()} (s)")
+           xlabel=plot_text(rf"\certifaiger {title.lower()} (s)"),
+           ylabel=plot_text(rf"\caketaiger {title.lower()} (s)"))
     ax.set_aspect("equal", adjustable="box")
     ax.grid(alpha=0.25)
     # Keep identical axes and page bounds despite the different legend heights.
@@ -226,7 +238,7 @@ for i, c in enumerate(cfgs):
             linewidth=2.6 if c == "caketaiger" else 1.8, color=colors[c],
             marker=markers[c], markersize=7, markevery=(0.02 + 0.012 * i, 0.09),
             markeredgecolor="white", markeredgewidth=0.8,
-            zorder=2 + len(cfgs) - i, label=f"{len(times)} {cdf_labels[c]}")
+            zorder=2 + len(cfgs) - i, label=f"{len(times)} {cdf_labels[c] if TEX else plot_text(labels[c])}")
 ax.set(xscale="log", xlim=(lo, hi), ylim=(0, n * 1.02),
        xlabel="generation + checking (s)", ylabel="validated certificates")
 ax.grid(alpha=0.25)

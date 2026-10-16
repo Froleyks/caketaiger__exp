@@ -9,6 +9,7 @@
 /smoketest/
 /*.tar
 /*.zip
+/caketaiger-*.tar.xz
 /*.pdf
 **/benchmarks-*
 **/log-*/
