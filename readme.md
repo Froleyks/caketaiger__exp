@@ -1,27 +1,24 @@
 # Caketaiger: A Verified Certificate Checker for Hardware Model Checking
 
-Evaluation on witness circuits for model checking safety and liveness properties.
-
 Claimed badges: Available + Functional + Reusable
 
 ## Quickstart
 
 ```bash
 make container-smoketest
-make container-sub
 make container-all
 ```
+make container-sub
 
-This extracts and loads the container image and runs different subsets of the experiments within the container.
-If neither an image nor `caketaiger.tar.xz` is available, the image is built from the current directory instead.
+This extracts and loads the correct (amd/arm) container image and runs different subsets of the experiments within the container.
 PDFs with the results are copied to the current directory for inspection.
-You may need to adjust the memory available per CPU used for each benchmark at the top of the Makefile before running `sub`.
+Windows+Mac: Adjust docker.desktop memory limit to all you have and adjust the values at the to of the Makefile accordingly.
 (The Makefile is copied into the running container.)
 `<system CPUs> * $(MEM_PER_CPU) * $(MAKEFLAGS --jobs)` should not exceed your system's memory (by much).
 The `all` goal exercises the plotting scripts using our data without rerunning experiments in the prepared image.
 
 `smoketest.pdf` should contain four tables and three plots. The smoke goal runs two certificates per checker with a 10-second limit per stage.
-`all.pdf` should reproduce the plots and tables in the paper, without the surrounding paper text.
+`all.pdf` should exactly reproduce the plots and tables in the paper.
 `sub.pdf` should approximate `all.pdf` while using lower timeouts, memory limits, and fewer benchmarks.
 
 ## Requirements

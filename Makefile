@@ -7,9 +7,12 @@ EXPERIMENTS := multi pvs hwmcc
 DEPS := multi/witness bin/runlim bin/certifaiger bin/aigsplit bin/aigtoaig bin/aigtocnf bin/cadical bin/caketaiger bin/cake_lrup bin/proveit bin/pvs-sbclisp bin/pvs-theories
 GOAL := $(or $(filter all sub smoketest,$(MAKECMDGOALS)),all)
 
-export SUBSET := --sub 28800
+# ADJUST THIS To YOUR HARDWARE!
+sub: export MEM_PER_CPU ?= 1500
+sub: export CPUS ?= 2
 sub: export TIME ?= 1000
-sub: export MEM_PER_CPU ?= 1400
+export SUBSET := --sub 28800
+
 smoketest: export TIME ?= 10
 
 all smoketest sub: $(EXPERIMENTS)
@@ -52,27 +55,30 @@ stop:
 	-$(CONTAINER) stop -t 0 $(NAME)
 extract: load
 	$(CONTAINER) cp $(NAME):/app/. .
+ARCH ?= $(if $(filter arm64 aarch64,$(shell uname -m)),arm,amd)
 load:
 	@if $(CONTAINER) image inspect $(NAME) >/dev/null 2>&1; then :; \
-	elif [ -f $(NAME).tar.xz ]; then \
-		unxz -T0 -k $(NAME).tar.xz; \
-		$(CONTAINER) load -i $(NAME).tar; \
-		rm $(NAME).tar; \
+	elif [ -f $(NAME)-$(ARCH).tar.xz ]; then \
+		unxz -T0 -k $(NAME)-$(ARCH).tar.xz; \
+		$(CONTAINER) load -i $(NAME)-$(ARCH).tar; \
+		rm $(NAME)-$(ARCH).tar; \
+		$(CONTAINER) tag $(NAME):$(ARCH) $(NAME); \
 	else \
 		$(CONTAINER) build -t $(NAME) .; \
 	fi
 	@$(CONTAINER) run -dit --network none --name $(NAME) $(NAME) sleep infinity 2> /dev/null || true
 	@$(CONTAINER) start $(NAME)
-$(NAME).tar.xz:
-	git archive -o /tmp/$(NAME).tar HEAD
+IMAGES := $(NAME)-arm.tar.xz $(NAME)-amd.tar.xz
+$(IMAGES): $(NAME)-%.tar.xz:
+	git archive -o /tmp/$(NAME)-$*.tar HEAD
 	for i in hwmcc/hwmcc25-benchmarks-bitlevel-safety.tar.gz hwmcc/hwmcc25-logfiles.tar.gz; do \
-		if [ -f "$$i" ]; then tar -rf /tmp/$(NAME).tar "$$i"; fi; \
+		if [ -f "$$i" ]; then tar -rf /tmp/$(NAME)-$*.tar "$$i"; fi; \
 	done
-	$(CONTAINER) build -t $(NAME) - < /tmp/$(NAME).tar
-	rm /tmp/$(NAME).tar
-	$(CONTAINER) save -o $(NAME).tar $(NAME)
-	xz -T0 $(NAME).tar
-$(NAME).zip: $(NAME).tar.xz Makefile readme.md LICENSE
+	$(CONTAINER) build --platform linux/$*64 -t $(NAME):$* - < /tmp/$(NAME)-$*.tar
+	rm /tmp/$(NAME)-$*.tar
+	$(CONTAINER) save -o $(NAME)-$*.tar $(NAME):$*
+	xz -T0 $(NAME)-$*.tar
+$(NAME).zip: $(IMAGES) Makefile readme.md LICENSE
 	rm -rf $@ /tmp/$(NAME)-zip
 	mkdir -p /tmp/$(NAME)-zip/$(NAME)
 	cp $^ /tmp/$(NAME)-zip/$(NAME)/
@@ -95,6 +101,6 @@ clean: stop
 	for i in $(EXPERIMENTS); do $(MAKE) -C $$i clean; done
 	rm -rf multi/model multi/witness pvs/model pvs/nuxmv pvs/voiraig hwmcc/model hwmcc/witness
 	-$(CONTAINER) rm -f $(NAME)
-	-$(CONTAINER) rmi -f $(NAME)
+	-$(CONTAINER) rmi -f $(NAME) $(NAME):arm $(NAME):amd
 
 .PHONY: $(EXPERIMENTS) stop clean enter extract load container-% pilot dry our-data

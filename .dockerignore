@@ -5,8 +5,8 @@ sub
 smoketest
 **/log-*
 **/__pycache__
-caketaiger.tar
-caketaiger.tar.xz
+caketaiger*.tar
+caketaiger*.tar.xz
 caketaiger.zip
 src/aiger
 src/cadical

@@ -52,7 +52,7 @@ $(bin)/caketaiger $(bin)/cake_lrup &: caketaiger-artifacts.tar.xz
 	cp caketaiger-artifacts/{caketaiger,cake_lrup} $(bin)/
 
 $(bin)/tectonic:
-	curl -fL --retry 3 -o tectonic.tar.gz https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%400.17.0/tectonic-0.17.0-x86_64-unknown-linux-musl.tar.gz
+	curl -fL --retry 3 -o tectonic.tar.gz https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%400.17.0/tectonic-0.17.0-$$(uname -m)-unknown-linux-musl.tar.gz
 	tar -xzf tectonic.tar.gz tectonic
 	install -m755 tectonic $@
 
@@ -68,7 +68,7 @@ $(bin)/proveit $(bin)/pvs-sbclisp $(bin)/pvs-theories &: pvs.tar.xz
 	$(MAKE) -j1
 	$(MAKE) -j1
 	ln -sf ../src/nuxmv/PVS/proveit $(bin)/proveit
-	ln -sf ../src/nuxmv/PVS/bin/ix86_64-Linux/runtime/pvs-sbclisp $(bin)/pvs-sbclisp
+	ln -sf ../src/nuxmv/PVS/bin/$$(bin/pvs-platform)/runtime/pvs-sbclisp $(bin)/pvs-sbclisp
 
 portable: $(bin)/pvs.sif
 $(bin)/pvs.sif: pvs.def pvs.tar.xz
