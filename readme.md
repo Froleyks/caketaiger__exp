@@ -48,19 +48,20 @@ You can `make enter` or `make extract` to inspect the setup in the running conta
 
 The results produced by `sub` are intended to support the claims in the paper while being reasonably reproducible on a single machine.
 You can modify the `SUBSET` parameter at the top of the Makefile to influence what benchmarks are rerun.
-By default, the subset budget is 28800 (1/3 * 8h) per experiment..
+By default, the subset budget is 28800 (1/3 * 8h) per experiment.
 This is a selection budget based on our measurements, rather than a wall-time limit for the entire experiment.
-The `sub` goal also reduces the per-stage timeout from 3600 to 1000 seconds and the memory per allocated CPU from 4000 to 1400 MB.
+The `sub` goal also reduces the per-stage timeout from 36000 to 3600 seconds.
+To approximate the results we got using 2 core-years on our cluster the HWMCC experiment focuses on the 681 benchmarks all configurations solve within a memory limit of 1500 MB.
+Multi `sub` reruns 19 witnesses, as many as the paper's Multi table shows: those of 6s217 and cuabq2f from that table, and of the next hardest models cuffl, culock, cutarb8, and cugcd.
 Removing the `SUBSET` restriction and the two `sub` resource overrides will reproduce our results more precisely and increase the artifact runtime and memory requirements.
 Changing `SUBSET` and rerunning will extend the results without redoing previous work where logs already exist.
 
 With the default settings, `sub` is intended to show the following:
 The Multi table demonstrates checking of models with multiple safety and liveness properties, using witnesses from different Voiraig engines.
 The PVS table should reflect that Caketaiger is faster on average on the commonly certified benchmarks.
-The two PVS memory-outs in the full results need not be reproduced with the reduced memory limit; additional memory-outs may occur.
-The HWMCC checking-time plot and summary should show the benefit of the CNF optimizations and the competitive checking performance of Caketaiger.
-The scatter plots distinguish formula generation, where Caketaiger is slower, from checking, where it performs better overall.
-Exact runtimes, timeout counts, and relative ordering may vary with the machine and selected subset.
+The two PVS memory-outs in the full results need not be reproduced and may be timeouts instead.
+The HWMCC plot and tables should clearly show that COI is necessary and that Caketaiger produces smaller formulas than Certifaiger. The benefits of XOR and ITE may only be visible on the larger formulas not run in the subset.
+The scatter plots separate formula generation from checking.
 
 We recognize that the selection of the benchmark subset could influence the results.
 While the script to select the subsets is available, it relies on our experimental data.

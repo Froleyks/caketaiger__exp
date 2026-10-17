@@ -7,14 +7,13 @@ import pandas as pd
 src, out = argv[1:]
 d = pd.read_csv(src)
 d["Generation (s)"] = d.generation
-d["Checking (s)"] = d.filter(regex="^check_").sum(axis=1, min_count=1)
+d["Checking (s)"] = d.filter(regex="^check_").sum(axis=1, min_count=1).where(d.status == "ok")
 
 d["witness"] = d.name.str.split("-", n=1).str[1]
-d["total"] = d["Generation (s)"] + d["Checking (s)"]
-hard = d.groupby("witness")["total"].transform("max") > 5
-if hard.any():
-    d = d[hard].copy()
-d["max_check"] = d.groupby("witness")["Checking (s)"].transform("max")
+d["total"] = (d["Generation (s)"] + d["Checking (s)"]).fillna(float("inf"))
+# The eight models with the slowest witness; failed witnesses count as slowest.
+d = d[d.witness.isin(d.groupby("witness")["total"].max().nlargest(8).index)].copy()
+d["max_check"] = d["Checking (s)"].fillna(float("inf")).groupby(d.witness).transform("max")
 d["engine_order"] = d.name.str.split("-", n=1).str[0].map(
     {"l2s": 0, "rlive": 1, "k": 2, "stable": 3})
 
@@ -33,7 +32,8 @@ for _, row in d.sort_values(["max_check", "witness", "engine_order"],
     engine = {"k": "k-liveness", "l2s": "L2S", "rlive": "rlive", "stable": "stabilizer"}[engine]
     rows.append([name, M, I, L, C,
                  *[q[i] if i < J else "-" for i in range(2)], engine,
-                 row["Generation (s)"], row["Checking (s)"]])
+                 *[f"{v:.2f}" if pd.notna(v) else row.status
+                   for v in (row["Generation (s)"], row["Checking (s)"])]])
 
 heads = ["Model", "M", "I", "L", "C", "Q1", "Q2", "Engine",
          "Generate (s)", "Check (s)"]
@@ -44,9 +44,9 @@ for row in rows:
     else:
         previous = row[0]
 table = pd.DataFrame(rows, columns=heads)
-print(table.to_string(index=False, float_format=lambda v: f"{v:.2f}"))
+print(table.to_string(index=False))
 
-time_widths = [max((f"{row[i]:.2f}" for row in rows), key=len, default="0.00") for i in (-2, -1)]
+time_widths = [max((row[i] for row in rows), key=len, default="0.00") for i in (-2, -1)]
 
 with open(f"{out}-checks.tex", "w") as f:
     f.write(r"\begin{table}[htbp]\centering" + "\n")

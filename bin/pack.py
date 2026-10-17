@@ -3,6 +3,8 @@
 
 The data file must contain at least `dir`, `name`, and `time`.
 Benchmark files end each task line with `@group dir name`.
+With --common, only benchmarks measured for every list are kept, and --sub
+selects each benchmark for all lists at the cost of all its entries.
 """
 import os
 import re
@@ -10,7 +12,7 @@ import re
 from sys import argv, exit
 
 if len(argv) < 2:
-    print("Usage: pack.py data [lists...] [--column <allowed values>] [--sub <seconds>] [--dry <file>]")
+    print("Usage: pack.py data [lists...] [--column <allowed values>] [--sub <seconds>] [--common] [--dry <file>]")
     exit(1)
     
 data = argv[1]
@@ -18,6 +20,7 @@ benchmarks = ['benchmarks']
 filter = []
 filter_le = []
 sub = None
+common = False
 dry = False
 
 parts = []
@@ -43,6 +46,11 @@ for part in parts:
         except ValueError:
             print("Invalid subset time:", value)
             exit(1)
+    elif key == "common":
+        if len(part) != 1:
+            print("Usage: --common")
+            exit(1)
+        common = True
     elif key == "dry":
         if len(part) != 2:
             print("Usage: --dry <file>")
@@ -85,6 +93,7 @@ TASK_LINE_RE = re.compile(
 )
 
 lists = {benchmarks_file: [] for benchmarks_file in benchmarks}
+measured = {}
 for benchmarks_file in benchmarks:
     with open(benchmarks_file) as f:
         for line in f:
@@ -105,26 +114,34 @@ for benchmarks_file in benchmarks:
                 found = True
             if (filter or filter_le) and not found:
                 continue
-            lists[benchmarks_file].append((t, benchmarks_file, cmd, suffix))
+            if found:
+                measured.setdefault(name, set()).add(benchmarks_file)
+            lists[benchmarks_file].append((t, benchmarks_file, cmd, suffix, name))
+if common:
+    for benchmarks_file, entries in lists.items():
+        lists[benchmarks_file] = [
+            entry for entry in entries
+            if len(measured.get(entry[4], ())) == len(lists)
+        ]
 for benchmarks_file, entries in lists.items():
     entries.sort()
 
 if sub is not None:
+    key = lambda entry: entry[4] if common else (entry[1], entry[4])
+    cost = {}
+    for benchmarks_file, entries in lists.items():
+        for entry in entries:
+            cost[key(entry)] = cost.get(key(entry), 0.0) + entry[0]
     total = 0.0
     limit = float("inf")
-    times = sorted(
-        entry[0]
-        for benchmarks_file, entries in lists.items()
-        for entry in entries
-    )
-    for t in times:
+    for t in sorted(cost.values()):
         if total + t > sub:
             limit = t
             break
         total += t
     print(f"sub {limit}")
     for benchmarks_file, entries in lists.items():
-        lists[benchmarks_file] = [entry for entry in entries if entry[0] < limit]
+        lists[benchmarks_file] = [entry for entry in entries if cost[key(entry)] < limit]
 
 def bin_pack(entries):
     short_limit = 5
@@ -133,7 +150,7 @@ def bin_pack(entries):
     packed = []
     group = 0
     total = capacity
-    for t, benchmarks_file, cmd, suffix in entries:
+    for t, benchmarks_file, cmd, suffix, _ in entries:
         if total >= capacity or t > short_limit:
             total = 0
             group += 1

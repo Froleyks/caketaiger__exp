@@ -33,7 +33,9 @@ $(BENCHMARKS) &: make_benchmarks.sh Makefile ../Makefile | download
 		grep -E ' (ric3-multi|aic3)_bitlevel_safety_2019_goel_opensource_vis_QF_BV_bcuvis32_vis_QF_BV_bcuvis32\.aig$$' $$i-all > $$i-smoketest; \
 	done
 	../bin/pack.py our-data benchmarks-*-smoketest
-	../bin/pack.py our-data benchmarks-*-sub $(SUBSET)
+	# All configurations share the certificates every configuration validated
+	# in our-data within 1500 MB, leaving margin below the 2600 MB sub limit.
+	../bin/pack.py our-data benchmarks-*-sub $(SUBSET) --common --status ok --memory = 1500
 
 download: model/.downloaded witness/.downloaded
 %.tar.gz:

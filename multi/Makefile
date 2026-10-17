@@ -30,8 +30,10 @@ $(BENCHMARKS) &: make_benchmarks.sh Makefile ../Makefile
 	rm -f benchmarks-*
 	./$<
 	../bin/pack.py our-data benchmarks-*
+	# sub: the paper table's models that used at most 1500 MB in our-data, and the
+	# next hardest models up to the table's 19 witnesses; the others need ~26 GB.
 	for i in benchmarks-*; do \
-		cp $$i $$i-sub; \
+		grep -E ' [a-z0-9]+-(6s217|cuabq2f|cuffl|culock|cutarb8|cugcd)$$' $$i > $$i-sub; \
 		mv $$i $$i-all; \
 		grep -E ' (stable-lmcs06counter0|k-cucnt3)$$' $$i-all > $$i-smoketest; \
 	done
