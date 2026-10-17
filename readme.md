@@ -7,8 +7,8 @@ Claimed badges: Available + Functional + Reusable
 ```bash
 make container-smoketest
 make container-all
-```
 make container-sub
+```
 
 This extracts and loads the correct (amd/arm) container image and runs different subsets of the experiments within the container.
 PDFs with the results are copied to the current directory for inspection.
@@ -18,7 +18,7 @@ Windows+Mac: Adjust docker.desktop memory limit to all you have and adjust the v
 The `all` goal exercises the plotting scripts using our data without rerunning experiments in the prepared image.
 
 `smoketest.pdf` should contain four tables and three plots. The smoke goal runs two certificates per checker with a 10-second limit per stage.
-`all.pdf` should exactly reproduce the plots and tables in the paper.
+`all.pdf` should exactly reproduce the plots and tables in the paper (except for fonts).
 `sub.pdf` should approximate `all.pdf` while using lower timeouts, memory limits, and fewer benchmarks.
 
 ## Requirements
