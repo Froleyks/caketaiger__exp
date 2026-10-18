@@ -5,6 +5,8 @@ NAME ?= caketaiger
 TIME ?= 36000
 MEM_PER_CPU ?= 4000
 CPUS ?= 32
+# MB for HWMCC sub certificates checked one at a time (0 skips them).
+SEQ_MEM ?= 32000
 SLACK ?= 205
 CLUSTER ?= mindwell
 PARTITION ?= batch_graniterapids

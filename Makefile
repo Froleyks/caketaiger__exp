@@ -11,6 +11,8 @@ GOAL := $(or $(filter all sub smoketest,$(MAKECMDGOALS)),all)
 sub: export MEM_PER_CPU ?= 1500
 sub: export CPUS ?= 2
 sub: export TIME ?= 3600
+# HWMCC certificates needing more memory run one at a time (0 skips them).
+sub: export SEQ_MEM ?= 32000
 export SUBSET := --sub 28800
 
 smoketest: export TIME ?= 10
@@ -39,9 +41,9 @@ benchmarks.tar.xz: multi/model multi/witness pvs/model pvs/nuxmv pvs/voiraig
 	tar -I 'xz -9e' -cf $@ $^
 
 dry: | .venv multi/witness
-	for i in $(EXPERIMENTS); do \
+	shopt -s nullglob; for i in $(EXPERIMENTS); do \
 		$(MAKE) -C $$i benchmarks; \
-		./bin/pack.py $$i/our-data $$i/benchmarks-*-sub --dry $$i/data-sub; \
+		./bin/pack.py $$i/our-data $$i/benchmarks-*-sub $$i/benchmarks-*-sub-seq --dry $$i/data-sub; \
 	done; $(MAKE) sub
 
 CONTAINER ?= $(firstword $(shell command -v podman 2>/dev/null) $(shell command -v docker 2>/dev/null))
