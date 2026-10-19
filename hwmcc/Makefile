@@ -40,7 +40,7 @@ $(BENCHMARKS) &: make_benchmarks.sh sequential.py Makefile ../Makefile | downloa
 	# in our-data within 1500 MB, leaving margin below the 2600 MB sub limit.
 	../bin/pack.py our-data benchmarks-*-sub $(SUBSET) --common --status ok --memory = 1500
 	# Certificates needing up to 26 GB per check, see sequential.py.
-	./sequential.py our-data benchmarks-*-sub-seq --time 3600 --check 30 --budget 14400 --ladder 2
+	./sequential.py our-data benchmarks-*-sub-seq --time 3600 --check 30 --budget 14400
 	../bin/pack.py our-data benchmarks-*-sub-seq
 
 download: model/.downloaded witness/.downloaded

@@ -12,7 +12,7 @@ make container-sub
 
 This extracts and loads the correct (amd/arm) container image and runs different subsets of the experiments within the container.
 PDFs with the results are copied to the current directory for inspection.
-Windows+Mac: Adjust docker.desktop memory limit to all you have and adjust the values at the to of the Makefile accordingly.
+Windows+Mac: Adjust the Docker Desktop memory limit to all you have and adjust the values at the top of the Makefile accordingly.
 (The Makefile is copied into the running container.)
 `<system CPUs> * $(MEM_PER_CPU) * $(MAKEFLAGS --jobs)` should not exceed your system's memory (by much).
 The `all` goal exercises the plotting scripts using our data without rerunning experiments in the prepared image.
@@ -34,8 +34,8 @@ Our evaluation consists of three experiments:
 - `pvs`: comparison of Caketaiger on Voiraig witnesses to the PVS-based checker on nuXmv certificates
 - `multi`: certification of multi-signal and multi-property benchmarks
 
-HWMCC checks 984 certificates with each of six configurations: Caketaiger, and Certifaiger with no optimizations, COI, COI+XOR, COI+XOR+ITE, and COI+XOR+ITE+PG (the default).
-The eight known invalid HWMCC certificates listed in `hwmcc/invalid` are excluded.
+HWMCC checks 983 certificates with each of six configurations: Caketaiger, and Certifaiger with no optimizations, COI, COI+XOR, COI+XOR+ITE, and COI+XOR+ITE+PG (the default).
+The nine known invalid HWMCC certificates listed in `hwmcc/invalid` are excluded.
 PVS compares certificates for 11 models for which both nuXmv and Voiraig produced certificates.
 Multi checks 81 witness circuits with Caketaiger.
 
@@ -53,14 +53,14 @@ This is a selection budget based on our measurements, rather than a wall-time li
 The `sub` goal also reduces the per-stage timeout from 10 hours to 1 hour.
 To approximate the results we got using 2 core-years on our cluster, HWMCC `sub` runs in two parts.
 The parallel part checks the 681 certificates all configurations validate within 1500 MB in our data.
-The sequential part checks 24 additional certificates needing up to 26 GB one at a time selected by `hwmcc/sequential.py`:
-Multi `sub` reruns 19 witnesses, as many as the paper's Multi table shows: those of 6s217 and cuabq2f from that table, and of the next hardest models cuffl, culock, cutarb8, and cugcd. As the table has been moved to the appendix we reduced the compute invested here.
+The sequential part checks 22 additional certificates needing up to 26 GB one at a time, selected by `hwmcc/sequential.py`.
+Multi `sub` reruns 19 witnesses, as many as the paper's Multi table shows: those of 6s217 and cuabq2f from that table, and of the next hardest models cuffl, culock, cutarb8, and cugcd. As the table has been moved to the appendix, we reduced the compute invested here.
 The PVS experiment runs in full.
 Removing the `SUBSET` restriction and the two `sub` resource overrides will reproduce our results more precisely and increase the artifact runtime and memory requirements.
 Changing `SUBSET` and rerunning will extend the results without redoing previous work where logs already exist.
 
 With the default settings, `sub` is intended to show the following:
-The Multi table demonstrates checking of models with multiple safety and liveness properties is possible.
+The Multi table demonstrates that checking models with multiple safety and liveness properties is possible.
 The PVS table should reflect that Caketaiger is faster on average on the commonly certified benchmarks.
 The two PVS memory-outs in the full results need not be reproduced and may be timeouts instead.
 The HWMCC tables should show that Caketaiger produces the fewest clauses per gate and has the lowest mean checking time on the commonly validated certificates and the lowest PAR-2. Those two measurements are expected to be mostly the same since we reduced waiting on timeouts.
