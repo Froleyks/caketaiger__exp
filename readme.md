@@ -24,7 +24,7 @@ The `all` goal exercises the plotting scripts using our data without rerunning e
 ## Requirements
 
 - `make`, `xz`, and either `podman` or `docker`
-- Sufficiently large overlay storage for the container
+- About 32 GB of memory available to the container
 
 ## Experiments
 
@@ -50,18 +50,21 @@ The results produced by `sub` are intended to support the claims in the paper wh
 You can modify the `SUBSET` parameter at the top of the Makefile to influence what benchmarks are rerun.
 By default, the subset budget is 28800 (1/3 * 8h) per experiment.
 This is a selection budget based on our measurements, rather than a wall-time limit for the entire experiment.
-The `sub` goal also reduces the per-stage timeout from 36000 to 3600 seconds.
-To approximate the results we got using 2 core-years on our cluster the HWMCC experiment focuses on the 681 benchmarks all configurations solve within a memory limit of 1500 MB.
-Multi `sub` reruns 19 witnesses, as many as the paper's Multi table shows: those of 6s217 and cuabq2f from that table, and of the next hardest models cuffl, culock, cutarb8, and cugcd.
+The `sub` goal also reduces the per-stage timeout from 10 hours to 1 hour.
+To approximate the results we got using 2 core-years on our cluster, HWMCC `sub` runs in two parts.
+The parallel part checks the 681 certificates all configurations validate within 1500 MB in our data.
+The sequential part checks 24 additional certificates needing up to 26 GB one at a time selected by `hwmcc/sequential.py`:
+Multi `sub` reruns 19 witnesses, as many as the paper's Multi table shows: those of 6s217 and cuabq2f from that table, and of the next hardest models cuffl, culock, cutarb8, and cugcd. As the table has been moved to the appendix we reduced the compute invested here.
+The PVS experiment runs in full.
 Removing the `SUBSET` restriction and the two `sub` resource overrides will reproduce our results more precisely and increase the artifact runtime and memory requirements.
 Changing `SUBSET` and rerunning will extend the results without redoing previous work where logs already exist.
 
 With the default settings, `sub` is intended to show the following:
-The Multi table demonstrates checking of models with multiple safety and liveness properties, using witnesses from different Voiraig engines.
+The Multi table demonstrates checking of models with multiple safety and liveness properties is possible.
 The PVS table should reflect that Caketaiger is faster on average on the commonly certified benchmarks.
 The two PVS memory-outs in the full results need not be reproduced and may be timeouts instead.
-The HWMCC plot and tables should clearly show that COI is necessary and that Caketaiger produces smaller formulas than Certifaiger. The benefits of XOR and ITE may only be visible on the larger formulas not run in the subset.
-The scatter plots separate formula generation from checking.
+The HWMCC tables should show that Caketaiger produces the fewest clauses per gate and has the lowest mean checking time on the commonly validated certificates and the lowest PAR-2. Those two measurements are expected to be mostly the same since we reduced waiting on timeouts.
+Mean checking time should increase as Certifaiger's optimizations are removed, with COI being the most essential.
 
 We recognize that the selection of the benchmark subset could influence the results.
 While the script to select the subsets is available, it relies on our experimental data.

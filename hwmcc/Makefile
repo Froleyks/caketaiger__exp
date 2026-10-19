@@ -9,12 +9,7 @@ PARSING := @ time: @ status: @ memory: @ t_generation: generation @ t_split: spl
 	@ 'size witness ' witness_format 6 witness_M 7 witness_I 8 witness_L 9 witness_O 10 witness_A 11 witness_B 12 witness_C 13 witness_J 14 witness_F 15 \
 	$(foreach check,Reset Transition Safety Liveness Base Inductive Decrease Closure Consistent,@ 'size CNF $(check) ' vars_$(check) 8 clauses_$(check) 9)
 
-BENCHMARKS := $(foreach goal,all sub sub-seq smoketest,$(addsuffix -$(goal),$(addprefix benchmarks-,$(CONFIGS))))
-# Certificates beyond the parallel sub memory limit run one at a time with up
-# to SEQ_MEM MB (0 skips them), checking their conditions one after another.
-SEQUENTIAL_SUBSET := --time 3600 --check 30 --budget 14400 --ladder 2
-SEQ_ENV = JOBS=1 SPACE=$$(( $(SEQ_MEM) - 400 )) SLURM='$(patsubst --mem-per-cpu=%,--mem=$(SEQ_MEM),$(SLURM))'
-LOCK := $(if $(shell command -v flock),flock "$${TMPDIR:-/tmp}/$(NAME)-sequential.lock")
+BENCHMARKS := $(foreach goal,all sub smoketest,$(addsuffix -$(goal),$(addprefix benchmarks-,$(CONFIGS))))
 
 all sub smoketest: %: data-%
 	./plot.py $< $(notdir $(CURDIR))-$@
@@ -24,11 +19,10 @@ data-%: LOG = $(addsuffix -$*,$(addprefix log-,$(CONFIGS)))
 data-%: $$(if $$(wildcard $$(LOG)),$$(LOG),$$(if $$(wildcard $$@),,$$(LOG)))
 	../bin/parse.py $^ $(PARSING) > $@
 
+# CPUS=32 checks the sequential sub certificates one at a time with 32 GB.
 log-%: benchmarks-% FORCE
 	../bin/parallel.sh benchmarks-$* log-$*
-	if [[ -n "$(filter-out 0,$(SEQ_MEM))" && -s benchmarks-$*-seq ]]; then \
-		$(LOCK) env $(SEQ_ENV) ../bin/parallel.sh benchmarks-$*-seq log-$*; \
-	fi
+	[[ ! -s benchmarks-$*-seq ]] || CPUS=32 SPACE=31600 ../bin/parallel.sh benchmarks-$*-seq log-$*
 
 benchmarks: $(BENCHMARKS)
 $(BENCHMARKS) &: make_benchmarks.sh sequential.py Makefile ../Makefile | download
@@ -45,11 +39,8 @@ $(BENCHMARKS) &: make_benchmarks.sh sequential.py Makefile ../Makefile | downloa
 	# All configurations share the certificates every configuration validated
 	# in our-data within 1500 MB, leaving margin below the 2600 MB sub limit.
 	../bin/pack.py our-data benchmarks-*-sub $(SUBSET) --common --status ok --memory = 1500
-	# The remaining sub certificates need up to 26 GB per check: those all
-	# configurations validated within the sub timeout where default Certifaiger
-	# checks for at least 30s, cheapest first within 4h of reference time, and
-	# the two cheapest that only Certifaiger without optimizations fails.
-	./sequential.py our-data benchmarks-*-sub-seq $(SEQUENTIAL_SUBSET)
+	# Certificates needing up to 26 GB per check, see sequential.py.
+	./sequential.py our-data benchmarks-*-sub-seq --time 3600 --check 30 --budget 14400 --ladder 2
 	../bin/pack.py our-data benchmarks-*-sub-seq
 
 download: model/.downloaded witness/.downloaded

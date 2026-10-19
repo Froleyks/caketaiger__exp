@@ -51,7 +51,6 @@ if ! [[ -d "$log" ]]; then
 fi
 
 mkdir -p "$log"
-# Two invocations on one log directory may start within the same second.
 ts="$(date +"%Y%m%dT%H%M%S")-$$"
 
 refresh_log_cache() {
@@ -232,7 +231,7 @@ if command -v sbatch >/dev/null 2>&1; then
 
 elif command -v parallel >/dev/null 2>&1; then
     printf "$banner using parallel\n"
-	jobs=${JOBS:-$(($(parallel --number-of-cores) / CPUS))}
+	jobs=$(($(parallel --number-of-cores) / CPUS))
     (( jobs < 1 )) && jobs=1
     group_runner="$log/group-runner-$ts.sh"
     cat >"$group_runner" <<'EOF'
@@ -272,7 +271,7 @@ elif command -v xargs >/dev/null 2>&1; then
 	    sysctl -n hw.ncpu 2>/dev/null ||
 	    echo 1
 	 )
-    jobs=${JOBS:-$(( cores / CPUS ))}
+    jobs=$(( cores / CPUS ))
     (( jobs < 1 )) && jobs=1
     awk '
         match($0, / @[0-9]+ /) {
