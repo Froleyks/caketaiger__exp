@@ -193,40 +193,6 @@ with open(f"{out}.tex", "w") as f:
         f.write(" & ".join([name, *cells]) + r" \\" + "\n")
     f.write(r"\bottomrule\end{tabular}\end{center}" + "\n")
 
-checks = [c.removeprefix("check_") for c in d.filter(regex="^check_")]
-rows = [[c] for c in [*checks, "All", "Generation"]]
-for cfg in ["caketaiger", "certifaiger"]:
-    r = d[d.dir == cfg]
-    vals = [((r[f"clauses_{c}"] / r.witness_M).mean(), r[f"check_{c}"].mean()) for c in checks]
-    vals.append((r.ratio.mean(), r.check.mean()))
-    for row, (ratio, time) in zip(rows, vals):
-        row.extend([ratio, time])
-    rows[-1].extend(["", r.gen.mean()])
-
-maxima = [max(col) for col in zip(*(row[1:] for row in rows[:len(checks)]))]
-fmt = lambda v, i: (f"{v:.2f}" if i % 2 else f"{v:.4f}") if v != "" else ""
-widths = [max((fmt(v, i) for v in col), key=len)
-          for i, col in enumerate(zip(*(row[1:] for row in rows)))]
-with open(f"{out}-checks.tex", "w") as f:
-    f.write(r"\begin{center}\begin{tabular}{lrr@{}p{8pt}@{}rr}\toprule" + "\n")
-    f.write(r" & \multicolumn{2}{c}{\caketaiger} & & \multicolumn{2}{c}{\certifaiger} \\" + "\n")
-    f.write(r"\cmidrule(lr){2-3}\cmidrule(lr){5-6}" + "\n")
-    heads = ["Clause/gate", "Time (s)", "Clause/gate", "Time (s)"]
-    heads = [r"\multicolumn{1}{c}{" + h + "}" for h in heads]
-    heads.insert(2, "")
-    f.write("Check & " + " & ".join(heads)
-            + r" \\ \midrule" + "\n")
-    for name, *cells in rows:
-        if name in ("All", "Generation"):
-            f.write(r"\midrule" + "\n")
-        cells = [r"\multicolumn{1}{c}{\phantom{" + w + r"}\llap{"
-                 + (r"{\bft " + fmt(v, i) + "}"
-                    if name in checks and v == m else fmt(v, i)) + "}}"
-                 for i, (w, v, m) in enumerate(zip(widths, cells, maxima))]
-        cells.insert(2, "")
-        f.write(" & ".join([name, *cells]) + r" \\" + "\n")
-    f.write(r"\bottomrule\end{tabular}\end{center}" + "\n")
-
 cdf_labels = {c: label.replace(r"\fontsize{6}{7}", r"\fontsize{10}{12}")
               for c, label in table_labels.items()}
 lo, hi = ok.combined.min() / 1.2, ok.combined.max() * 1.2
