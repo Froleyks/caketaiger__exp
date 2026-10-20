@@ -12,6 +12,18 @@ make container-sub
 
 This extracts and loads the correct (amd/arm) container image and runs different subsets of the experiments within the container.
 PDFs with the results are copied to the current directory for inspection.
+Wall times measured on the two platforms we tested:
+
+| Step                       | MacBook (arm) | EC2 (amd) |
+|----------------------------|---------------|-----------|
+| `unzip`                    | 6s            | 11s       |
+| `make container-smoketest` | 50s           | 1m34s     |
+| `make container-all`       | 1s            | 3s        |
+| `make container-sub`       | 3h22m58s      | 6h03m32s  |
+
+- MacBook: Apple M5 Max, 18 cores, 64 GB, macOS 26.5.1, Docker Desktop (Docker 29.8.2), ARM image
+- EC2: m7i.4xlarge, 16 vCPUs (Intel), 64 GiB, Ubuntu 24.04 LTS, podman, AMD image
+
 Windows+Mac: Adjust the Docker Desktop memory limit to all you have and adjust the values at the top of the Makefile accordingly.
 (The Makefile is copied into the running container.)
 `<system CPUs> * $(MEM_PER_CPU) * $(MAKEFLAGS --jobs)` should not exceed your system's memory (by much).
@@ -25,6 +37,7 @@ The `all` goal exercises the plotting scripts using our data without rerunning e
 
 - `make`, `xz`, and either `podman` or `docker`
 - About 32 GB of memory available to the container
+- About 16 GB of free disk space (archive, extracted images, loaded image, and container)
 
 ## Experiments
 
