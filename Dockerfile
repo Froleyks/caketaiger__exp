@@ -41,7 +41,10 @@ RUN git clone --branch v5.9.2 --depth 1 https://github.com/polyml/polyml.git /tm
     && rm -rf /tmp/polyml
 
 # Build HOL and Caketaiger first, cached independently of the rest of the project
-COPY formalization/ formalization/
+RUN git clone --branch trindemossen-2-v9 --depth 1 https://github.com/HOL-Theorem-Prover/HOL.git formalization/HOL \
+    && test "$(git -C formalization/HOL rev-parse HEAD)" = 652d1f0aad5cd537ed1e5d470ba3444e70ba470e \
+    && git clone --branch caketaiger-artifact --depth 1 https://github.com/CakeML/cakeml.git formalization/cakeml \
+    && test "$(git -C formalization/cakeml rev-parse HEAD)" = 4ab8ec5f0c933aa9a0229e760907a71485f9e950
 RUN cd formalization/HOL && poly < tools/smart-configure.sml && bin/build
 ENV PATH="/app/formalization/HOL/bin:$PATH"
 # --retry-oos retries when PolyML runs out of store for some reason
