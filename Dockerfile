@@ -44,9 +44,15 @@ RUN git clone --branch v5.9.2 --depth 1 https://github.com/polyml/polyml.git /tm
 COPY formalization/ formalization/
 RUN cd formalization/HOL && poly < tools/smart-configure.sml && bin/build
 ENV PATH="/app/formalization/HOL/bin:$PATH"
-RUN cd formalization/cakeml/examples/hwmcc_checker && Holmake
-RUN cd formalization/cakeml/examples/hwmcc_checker/compilation && Holmake
-RUN cd formalization/cakeml/examples/hwmcc_checker/compilation/proofs && Holmake
+# --retry-oos retries when PolyML runs out of store for some reason
+RUN cd formalization/cakeml/examples/hwmcc_checker \
+    && Holmake --retry-oos=5
+# We only want to produce the .S files, not the binary, because the caketaiger
+# recipe included by default does not account for the x86/ARM64 split
+RUN cd formalization/cakeml/examples/hwmcc_checker/compilation \
+    && Holmake --retry-oos=5 caketaigerCompileTheory.uo caketaigerARM8CompileTheory.uo
+RUN cd formalization/cakeml/examples/hwmcc_checker/compilation/proofs \
+    && Holmake --retry-oos=5
 
 # run
 COPY . .
