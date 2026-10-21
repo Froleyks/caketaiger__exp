@@ -210,7 +210,7 @@ To do a rebuild of the relevant files, you can first delete the prebuilt theorie
   cd /app/formalization/cakeml/examples/hwmcc_checker/
   Holmake cleanAll
   Holmake
-  cd compilation; Holmake
+  cd compilation; Holmake caketaigerCompileTheory.uo caketaigerARM8CompileTheory.uo
   cd proofs; Holmake
   ```
 
