@@ -36,8 +36,8 @@ The `all` goal exercises the plotting scripts using our data without rerunning e
 ## Requirements
 
 - `make`, `xz`, and either `podman` or `docker`
-- About 32 GB of memory available to the container
-- About 16 GB of free disk space (archive, extracted images, loaded image, and container)
+- 32GB of memory should be sufficient, but we only tested on 64GB systems
+- About 16GB of free disk space (archive, extracted images, loaded image, and container)
 
 ## Experiments
 
