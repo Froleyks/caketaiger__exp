@@ -78,7 +78,7 @@ $(IMAGES): $(NAME)-%.tar.xz:
 	rm /tmp/$(NAME)-$*.tar
 	$(CONTAINER) save -o $(NAME)-$*.tar $(NAME):$*
 	xz -T0 $(NAME)-$*.tar
-$(NAME).zip: $(IMAGES) Makefile readme.md LICENSE
+$(NAME).zip: $(IMAGES) $(IMAGES:.tar.xz=-build.log) Makefile readme.md LICENSE
 	rm -rf $@ /tmp/$(NAME)-zip
 	mkdir -p /tmp/$(NAME)-zip/$(NAME)
 	cp $^ /tmp/$(NAME)-zip/$(NAME)/
