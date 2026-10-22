@@ -147,15 +147,17 @@ Their versions correspond to what has been used to generate the binary artifact.
 The latest version of the CakeML formalization can be found on [master](https://github.com/CakeML/cakeml/tree/master/examples/hwmcc_checker),
 where many TODOs have been cleaned out and some improvements have been made.
 
-The easiest way to browse the theories is to run:
+The easiest way to browse the theories is to enter the container and start the proof assistant:
   ```bash
+  make enter
+  # inside the container
   cd /app/formalization/cakeml/examples/hwmcc_checker/compilation/proofs
-  cat /app/src/load-theories.sml - | hol
+  hol
   ```
 
-This will drop you into an interactive HOL session and pre-load all of the relevant formalized theory files.
-
-The load takes a while; you should see some output like this:
+This will drop you into an interactive HOL session.
+You can now pre-load all of the relevant formalized theory files with `use "/app/src/load-theories.sml";`.
+The load will take a while. You should see "Load completed." once it is ready.
   ```text
   ---------------------------------------------------------------------
        HOL4 [Trindemossen 2 (stdknl, built Wed Oct 21 03:05:01 2026)]
@@ -163,8 +165,16 @@ The load takes a while; you should see some output like this:
        For introductory HOL help, type: help "hol";
        To exit type <Control>-D
   ---------------------------------------------------------------------
+  ** Load path (see loadPath variable) now contains 186 entries
+  ** after consulting Holmakefiles and any holproject.toml
+
+  Input:
+  > use "/app/src/load-theories.sml";
+
+  Output:
   ...
   Load completed.
+  val it = (): unit
   ```
 
 You can then read a proved theorem by sending its name to the HOL terminal, e.g.:
@@ -206,14 +216,31 @@ You can then read a proved theorem by sending its name to the HOL terminal, e.g.
          (IMAGE set (set (qleft_live mlive))) (set mlatches): thm
   ```
 
+You can also use HOL's builtin search to inspect other definitions:
+  ```text
+  print_find "get_model_def";
 
-To do a rebuild of the relevant files, you can first delete the prebuilt theories, then run `Holmake`:
+  Output:
+  caketaigerProgProofTheory.get_model_def (DEFINITION)
+  ----------------------------------------------------
+  ⊢ ∀fs f.
+      get_model fs f =
+      case file_content fs f of
+        NONE => NONE
+      | SOME str =>
+        case parse_model (implode str) of
+          return maiger => SOME (preprocess_model maiger)
+        | error v1 => NONE
+  ```
+
+To do a rebuild of the relevant files, you can first delete the prebuilt theories, then run `Holmake`.
+The --retry-oos flag causes HOL to retry when running out of store (useful in an image).
   ```bash
   cd /app/formalization/cakeml/examples/hwmcc_checker/
   Holmake cleanAll
-  Holmake
-  cd compilation; Holmake caketaigerCompileTheory.uo caketaigerARM8CompileTheory.uo
-  cd proofs; Holmake
+  Holmake --retry-oos=5
+  cd compilation; Holmake --retry-oos=5 caketaigerCompileTheory.uo caketaigerARM8CompileTheory.uo
+  cd proofs; Holmake --retry-oos=5
   ```
 
 You should see output like this (some lines omitted).
