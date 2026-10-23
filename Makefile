@@ -81,10 +81,11 @@ $(IMAGES): $(NAME)-%.tar.xz:
 $(NAME).zip: $(IMAGES) $(IMAGES:.tar.xz=-build.log) Makefile readme.md LICENSE
 	rm -rf $@ /tmp/$(NAME)-zip
 	mkdir -p /tmp/$(NAME)-zip/$(NAME)
-	cp $^ /tmp/$(NAME)-zip/$(NAME)/
+	cp $(filter-out Makefile readme.md LICENSE,$^) /tmp/$(NAME)-zip/$(NAME)/
+	git archive --format=tar HEAD Makefile readme.md LICENSE | tar -xf - -C /tmp/$(NAME)-zip/$(NAME)
 	cd /tmp/$(NAME)-zip && zip -r $(abspath $@) $(NAME)
 	rm -rf /tmp/$(NAME)-zip
-	sha256sum $@
+	hash=$$(sha256sum "$@" | cut -d ' ' -f 1); sed -i.bak -E "s/^echo [[:xdigit:]]{64}  $(NAME)\.zip \| sha256sum -c -$$/echo $$hash  $(NAME).zip | sha256sum -c -/" readme.md; rm -f readme.md.bak
 
 # Extract first; submit, then run make again after the jobs finish.
 slurm: | $(DEPS) .venv
