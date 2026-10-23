@@ -62,11 +62,11 @@ load:
 		unxz -T0 -k $(NAME)-$(ARCH).tar.xz; \
 		$(CONTAINER) load -i $(NAME)-$(ARCH).tar; \
 		rm $(NAME)-$(ARCH).tar; \
-		$(CONTAINER) tag $(NAME):$(ARCH) $(NAME); \
+		$(CONTAINER) tag localhost/$(NAME):$(ARCH) $(NAME); \
 	else \
 		$(CONTAINER) build -t $(NAME) .; \
 	fi
-	@$(CONTAINER) run -dit --network none --name $(NAME) $(NAME) sleep infinity 2> /dev/null || true
+	@$(CONTAINER) run -d --network none --name $(NAME) $(NAME) sleep infinity || true
 	@$(CONTAINER) start $(NAME)
 IMAGES := $(NAME)-arm.tar.xz $(NAME)-amd.tar.xz
 $(IMAGES): $(NAME)-%.tar.xz:
@@ -74,21 +74,21 @@ $(IMAGES): $(NAME)-%.tar.xz:
 	for i in hwmcc/hwmcc25-benchmarks-bitlevel-safety.tar.gz hwmcc/hwmcc25-logfiles.tar.gz; do \
 		if [ -f "$$i" ]; then tar -rf /tmp/$(NAME)-$*.tar "$$i"; fi; \
 	done
-	$(CONTAINER) build --platform linux/$*64 -t $(NAME):$* - < /tmp/$(NAME)-$*.tar
+	$(CONTAINER) build --platform linux/$*64 -t localhost/$(NAME):$* - < /tmp/$(NAME)-$*.tar
 	rm /tmp/$(NAME)-$*.tar
-	$(CONTAINER) save -o $(NAME)-$*.tar $(NAME):$*
+	$(CONTAINER) save -o $(NAME)-$*.tar localhost/$(NAME):$*
 	xz -T0 $(NAME)-$*.tar
 $(NAME).zip: $(IMAGES) $(IMAGES:.tar.xz=-build.log) Makefile readme.md LICENSE
 	rm -rf $@ /tmp/$(NAME)-zip
 	mkdir -p /tmp/$(NAME)-zip/$(NAME)
 	cp $(filter-out Makefile readme.md LICENSE,$^) /tmp/$(NAME)-zip/$(NAME)/
 	git archive --format=tar HEAD Makefile readme.md LICENSE | tar -xf - -C /tmp/$(NAME)-zip/$(NAME)
-	cd /tmp/$(NAME)-zip && zip -r $(abspath $@) $(NAME)
+	cd /tmp/$(NAME)-zip && zip -r "$(abspath $@)" $(NAME)
 	rm -rf /tmp/$(NAME)-zip
-	awk -v hash="$$(sha256sum "$@" | cut -d ' ' -f 1)" '\
+	awk -v hash="$$(if command -v sha256sum >/dev/null 2>&1; then sha256sum "$@"; else shasum -a 256 "$@"; fi | cut -d ' ' -f 1)" '\
 		/^## Quickstart$$/ { state = 1 } \
 		state == 1 && /^```bash$$/ { \
-			print; print "echo " hash "  $@ | sha256sum -c -"; \
+			print; print "echo " hash "  $@ | { if command -v sha256sum >/dev/null 2>&1; then sha256sum -c -; else shasum -a 256 -c -; fi; }"; \
 			print "unzip $@ && cd $(NAME)"; state = 2; next \
 		} \
 		state == 2 && /^make[ \t]/ { state = 3 } \
@@ -110,6 +110,6 @@ clean: stop
 	for i in $(EXPERIMENTS); do $(MAKE) -C $$i clean; done
 	rm -rf multi/model multi/witness pvs/model pvs/nuxmv pvs/voiraig hwmcc/model hwmcc/witness
 	-$(CONTAINER) rm -f $(NAME)
-	-$(CONTAINER) rmi -f $(NAME) $(NAME):arm $(NAME):amd
+	-$(CONTAINER) rmi -f $(NAME) $(NAME):arm $(NAME):amd localhost/$(NAME):arm localhost/$(NAME):amd
 
 .PHONY: $(EXPERIMENTS) stop clean enter extract load container-% pilot dry our-data
