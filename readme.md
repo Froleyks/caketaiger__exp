@@ -131,6 +131,7 @@ The experimental setup is intended to be easily reused for this or other experim
 
 Caketaiger takes the (binary) AIGER files for the model and the witness, and an optional prefix for the CNF files.
 In some cases, it may be necessary to provide the binary with more memory to prevent garbage collection from taking the majority of the time:
+
   ```bash
   ./caketaiger --CML_HEAP_SIZE=26000 --CML_STACK_SIZE=2000 model.aig witness.aig
   ```
@@ -148,6 +149,7 @@ The latest version of the CakeML formalization can be found on [master](https://
 where many TODOs have been cleaned out and some improvements have been made.
 
 The easiest way to browse the theories is to enter the container and start the proof assistant:
+
   ```bash
   make enter
   # inside the container
@@ -156,12 +158,13 @@ The easiest way to browse the theories is to enter the container and start the p
   ```
 
 This will drop you into an interactive HOL session.
-You can now pre-load all of the relevant formalized theory files with `use "/app/src/load-theories.sml";`.
+You can now pre-load all of the relevant formalized theory files with: `use "/app/src/load-theories.sml";`.
 The load will take a while. You should see "Load completed." once it is ready.
+
   ```text
   ---------------------------------------------------------------------
        HOL4 [Trindemossen 2 (stdknl, built Wed Oct 21 03:05:01 2026)]
-  
+
        For introductory HOL help, type: help "hol";
        To exit type <Control>-D
   ---------------------------------------------------------------------
@@ -217,6 +220,7 @@ You can then read a proved theorem by sending its name to the HOL terminal, e.g.
   ```
 
 You can also use HOL's builtin search to inspect other definitions:
+
   ```text
   print_find "get_model_def";
 
@@ -235,6 +239,7 @@ You can also use HOL's builtin search to inspect other definitions:
 
 To do a rebuild of the relevant files, you can first delete the prebuilt theories, then run `Holmake`.
 The --retry-oos flag causes HOL to retry when running out of store (useful in an image).
+
   ```bash
   cd /app/formalization/cakeml/examples/hwmcc_checker/
   Holmake cleanAll
